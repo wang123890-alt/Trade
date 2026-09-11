@@ -1,4 +1,5 @@
 import { recompute, addTransaction, deleteTransaction } from './transactions.js';
+import { addWatchItem } from './watchlist.js';
 import { formatMoney, formatDate } from '../utils/format.js';
 
 function renderTransactionsView(container) {
@@ -76,7 +77,7 @@ function renderTransactionsView(container) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form).entries());
-    const { errors } = addTransaction({
+    const input = {
       stockId: data.stockId.trim(),
       stockName: data.stockName.trim(),
       type: data.type,
@@ -88,7 +89,8 @@ function renderTransactionsView(container) {
       strategy: data.strategy || '',
       reason: data.reason || '',
       note: data.note || '',
-    });
+    };
+    const { errors } = addTransaction(input);
 
     const errorBox = container.querySelector('#tx-form-errors');
     if (errors.length > 0) {
@@ -98,6 +100,7 @@ function renderTransactionsView(container) {
     errorBox.innerHTML = '';
     form.reset();
     renderList(container);
+    maybePromptAddToWatchlist(input);
   });
 
   renderList(container);
@@ -155,6 +158,28 @@ function renderList(container) {
       }
       renderList(container);
     });
+  });
+}
+
+/** After a SELL that zeroes out the position, offer (never force) adding the
+ * stock to the watchlist for continued observation. */
+function maybePromptAddToWatchlist(input) {
+  if (input.type !== 'SELL') return;
+  const { positions } = recompute();
+  const stillHeld = positions.some((p) => p.stockId === input.stockId);
+  if (stillHeld) return;
+
+  const wantsToWatch = window.confirm(
+    `${input.stockName} 已全部賣出，是否加入觀察名單持續追蹤？`
+  );
+  if (!wantsToWatch) return;
+
+  addWatchItem({
+    stockId: input.stockId,
+    stockName: input.stockName,
+    source: 'sold',
+    soldPrice: input.price,
+    soldAt: input.dateTime,
   });
 }
 
