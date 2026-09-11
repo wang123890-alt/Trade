@@ -1,7 +1,8 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
-import { computeRealizedSummary, computeUnrealizedSummary, groupByStock } from '../core/statistics.js';
-import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
+import { computeRealizedSummary, computeUnrealizedSummary, groupByStock, groupByStrategy } from '../core/statistics.js';
+import { attachLossReviews, summarizeLossPatterns } from './review.js';
+import { formatMoney, pnlClass } from '../utils/format.js';
 
 function renderOverviewView(container) {
   const manualPrices = ManualPriceRepository.getAll();
@@ -19,6 +20,13 @@ function renderOverviewView(container) {
   const unrealized = computeUnrealizedSummary(positions);
   const totalPnL = realized.totalRealizedPnL + unrealized.totalUnrealizedPnL;
   const byStock = groupByStock(matches);
+
+  const transactionsById = Object.fromEntries(transactions.map((t) => [t.id, t]));
+  const strategySummariesByName = Object.fromEntries(
+    groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s])
+  );
+  const reviewedMatches = attachLossReviews(matches, transactionsById, strategySummariesByName);
+  const lossPatterns = summarizeLossPatterns(reviewedMatches);
 
   container.innerHTML = `
     <div style="font-size:20px; font-weight:700; margin-bottom:16px;">市場總覽</div>
@@ -76,6 +84,22 @@ function renderOverviewView(container) {
             )
             .join('')}
     </div>
+
+    ${lossPatterns.length > 0 ? `
+    <div class="card">
+      <div style="font-size:15px; font-weight:700; margin-bottom:10px;">常見虧損原因統計</div>
+      ${lossPatterns
+        .map(
+          (p) => `
+        <div class="tx-row">
+          <div style="font-size:13px;">${p.trigger}</div>
+          <span class="tag tag-yellow">${p.count} 次</span>
+        </div>
+      `
+        )
+        .join('')}
+    </div>
+    ` : ''}
   `;
 }
 
