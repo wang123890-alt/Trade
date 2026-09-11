@@ -2,7 +2,7 @@
 // into #view by calling the view module's render(container) function.
 
 const routes = {};
-let currentRoute = 'holdings';
+let currentRoute = 'overview';
 
 function registerRoute(name, renderFn) {
   routes[name] = renderFn;
@@ -19,7 +19,7 @@ function navigate(name) {
 function renderCurrent() {
   const view = document.getElementById('view');
   view.innerHTML = '';
-  const render = routes[currentRoute] || routes.holdings;
+  const render = routes[currentRoute] || routes.overview;
   render(view);
 }
 
@@ -31,7 +31,7 @@ function updateNavActiveState() {
 
 function initRouter() {
   const fromHash = window.location.hash.replace('#', '');
-  currentRoute = routes[fromHash] ? fromHash : 'holdings';
+  currentRoute = routes[fromHash] ? fromHash : 'overview';
   window.addEventListener('hashchange', () => {
     const name = window.location.hash.replace('#', '');
     if (routes[name]) {
