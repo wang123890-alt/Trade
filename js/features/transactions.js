@@ -21,10 +21,19 @@ function validateTransaction(input) {
   return errors;
 }
 
-/** Recompute FIFO + positions from whatever is currently in storage. */
-function recompute(stockNames = {}, marketPrices = {}) {
+/** Recompute FIFO + positions from whatever is currently in storage.
+ * Stock display names are derived from the transactions themselves (the
+ * most recent transaction for each stockId wins) — callers only ever need
+ * to supply market prices for unrealized P&L. */
+function recompute(marketPrices = {}) {
   const transactions = TransactionRepository.getAll();
   const { matches, openLots, errors } = runFifo(transactions);
+
+  const stockNames = {};
+  [...transactions]
+    .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
+    .forEach((t) => { stockNames[t.stockId] = t.stockName; });
+
   const positions = computePositions(openLots, stockNames, marketPrices);
   return { transactions, matches, positions, errors };
 }

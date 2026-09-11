@@ -6,6 +6,7 @@
 const KEYS = {
   transactions: 'trade_app.transactions.v1',
   watchlist: 'trade_app.watchlist.v1',
+  manualPrices: 'trade_app.manual_prices.v1',
 };
 
 function readList(key) {
@@ -72,4 +73,23 @@ const WatchlistRepository = {
   },
 };
 
-export { TransactionRepository, WatchlistRepository };
+// Manual current-price overrides, keyed by stockId. This is the MVP stand-in
+// for MarketDataProvider's live quote (Phase 5) — a stock with no provider
+// price yet still gets an unrealized P&L if the user types one in.
+const ManualPriceRepository = {
+  getAll() {
+    try {
+      const raw = localStorage.getItem(KEYS.manualPrices);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  },
+  set(stockId, price) {
+    const all = ManualPriceRepository.getAll();
+    all[stockId] = price;
+    localStorage.setItem(KEYS.manualPrices, JSON.stringify(all));
+  },
+};
+
+export { TransactionRepository, WatchlistRepository, ManualPriceRepository };
