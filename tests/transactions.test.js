@@ -1,6 +1,7 @@
 // Plain Node test runner. Run with: node tests/transactions.test.js
 // Provides a minimal in-memory localStorage shim since storage.js targets
 // the browser API directly (by design — it's the one place that touches it).
+// No GitHub sync config is set, so storage.js runs in pure-localStorage mode.
 import assert from 'node:assert/strict';
 
 globalThis.localStorage = (() => {
@@ -16,14 +17,16 @@ globalThis.localStorage = (() => {
 const { addTransaction, editTransaction, deleteTransaction, recompute } = await import(
   '../js/features/transactions.js'
 );
+const { initStore } = await import('../js/data/storage.js');
 
 let passed = 0;
 let failed = 0;
 
-function test(name, fn) {
+async function test(name, fn) {
   localStorage.clear();
+  await initStore();
   try {
-    fn();
+    await fn();
     passed++;
     console.log(`  ok - ${name}`);
   } catch (err) {
@@ -33,8 +36,8 @@ function test(name, fn) {
   }
 }
 
-test('addTransaction rejects invalid input without saving', () => {
-  const { transaction, errors } = addTransaction({
+await test('addTransaction rejects invalid input without saving', async () => {
+  const { transaction, errors } = await addTransaction({
     stockId: '',
     stockName: '',
     type: 'BUY',
@@ -47,12 +50,12 @@ test('addTransaction rejects invalid input without saving', () => {
   assert.equal(recompute().transactions.length, 0);
 });
 
-test('addTransaction rejects a SELL that would over-sell current holdings', () => {
-  addTransaction({
+await test('addTransaction rejects a SELL that would over-sell current holdings', async () => {
+  await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'BUY',
     dateTime: '2026-01-01', price: 100, quantity: 1000,
   });
-  const { transaction, errors } = addTransaction({
+  const { transaction, errors } = await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'SELL',
     dateTime: '2026-01-05', price: 110, quantity: 5000,
   });
@@ -61,18 +64,18 @@ test('addTransaction rejects a SELL that would over-sell current holdings', () =
   assert.equal(recompute().transactions.length, 1); // sell was not saved
 });
 
-test('editTransaction rejects an edit that would cause a downstream over-sell', () => {
-  const buy = addTransaction({
+await test('editTransaction rejects an edit that would cause a downstream over-sell', async () => {
+  const buy = (await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'BUY',
     dateTime: '2026-01-01', price: 100, quantity: 1000,
-  }).transaction;
-  addTransaction({
+  })).transaction;
+  await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'SELL',
     dateTime: '2026-01-05', price: 110, quantity: 800,
   });
 
   // shrinking the buy to 500 means the existing sell of 800 now over-sells
-  const { transaction, errors } = editTransaction(buy.id, { quantity: 500 });
+  const { transaction, errors } = await editTransaction(buy.id, { quantity: 500 });
   assert.equal(transaction, null);
   assert.ok(errors[0].includes('賣出數量超過庫存'));
 
@@ -81,49 +84,49 @@ test('editTransaction rejects an edit that would cause a downstream over-sell', 
   assert.equal(stillOriginal.quantity, 1000);
 });
 
-test('editTransaction applies a valid change and downstream recompute reflects it', () => {
-  const buy = addTransaction({
+await test('editTransaction applies a valid change and downstream recompute reflects it', async () => {
+  const buy = (await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'BUY',
     dateTime: '2026-01-01', price: 100, quantity: 1000,
-  }).transaction;
-  addTransaction({
+  })).transaction;
+  await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'SELL',
     dateTime: '2026-01-10', price: 130, quantity: 1000,
   });
 
-  editTransaction(buy.id, { price: 110 });
+  await editTransaction(buy.id, { price: 110 });
   const { matches } = recompute();
   assert.equal(matches[0].buyPrice, 110);
   assert.equal(matches[0].realizedPnL, 20000);
 });
 
-test('deleteTransaction rejects deleting a Buy that a later Sell depends on', () => {
-  const buy = addTransaction({
+await test('deleteTransaction rejects deleting a Buy that a later Sell depends on', async () => {
+  const buy = (await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'BUY',
     dateTime: '2026-01-01', price: 100, quantity: 1000,
-  }).transaction;
-  addTransaction({
+  })).transaction;
+  await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'SELL',
     dateTime: '2026-01-10', price: 130, quantity: 1000,
   });
 
-  const { success, errors } = deleteTransaction(buy.id);
+  const { success, errors } = await deleteTransaction(buy.id);
   assert.equal(success, false);
   assert.ok(errors[0].includes('賣出數量超過庫存'));
   assert.equal(recompute().transactions.length, 2); // nothing deleted
 });
 
-test('deleteTransaction succeeds when nothing depends on it', () => {
-  const buy1 = addTransaction({
+await test('deleteTransaction succeeds when nothing depends on it', async () => {
+  const buy1 = (await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'BUY',
     dateTime: '2026-01-01', price: 100, quantity: 500,
-  }).transaction;
-  addTransaction({
+  })).transaction;
+  await addTransaction({
     stockId: '2330', stockName: '台積電', type: 'BUY',
     dateTime: '2026-01-02', price: 105, quantity: 500,
   });
 
-  const { success } = deleteTransaction(buy1.id);
+  const { success } = await deleteTransaction(buy1.id);
   assert.equal(success, true);
   assert.equal(recompute().transactions.length, 1);
 });

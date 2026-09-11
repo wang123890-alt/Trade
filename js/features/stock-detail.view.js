@@ -169,11 +169,14 @@ function renderNotes(container, stockId) {
       .join('');
   }
 
-  area.querySelector('#note-submit').addEventListener('click', () => {
+  area.querySelector('#note-submit').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const input = area.querySelector('#note-input');
     const text = input.value.trim();
     if (!text) return;
-    StockNotesRepository.add(stockId, text);
+    btn.disabled = true;
+    await StockNotesRepository.add(stockId, text);
+    btn.disabled = false;
     input.value = '';
     renderList();
   });

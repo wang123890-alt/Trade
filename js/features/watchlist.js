@@ -6,7 +6,7 @@ function getAllWatchItems() {
   return WatchlistRepository.getAll();
 }
 
-function addWatchItem({ stockId, stockName, source = 'manual', soldPrice = null, soldAt = null }) {
+async function addWatchItem({ stockId, stockName, source = 'manual', soldPrice = null, soldAt = null }) {
   if (!stockId || !stockName) {
     return { watchItem: null, errors: ['標的代號與名稱不可空白'] };
   }
@@ -22,7 +22,8 @@ function addWatchItem({ stockId, stockName, source = 'manual', soldPrice = null,
     soldPrice,
     soldAt,
   });
-  WatchlistRepository.save(watchItem);
+  const result = await WatchlistRepository.save(watchItem);
+  if (!result.ok) return { watchItem: null, errors: [result.error?.message || '同步失敗'] };
   return { watchItem, errors: [] };
 }
 
@@ -34,7 +35,7 @@ function addWatchItem({ stockId, stockName, source = 'manual', soldPrice = null,
  * in the watchlist, or one that still has an open position, is skipped.
  * Returns the list of items actually added.
  */
-function autoAddFullyClosedFromTransactions(transactions) {
+async function autoAddFullyClosedFromTransactions(transactions) {
   const { openLots } = runFifo(transactions);
   const openStockIds = new Set(
     Object.entries(openLots)
@@ -60,22 +61,23 @@ function autoAddFullyClosedFromTransactions(transactions) {
     if (openStockIds.has(stockId)) continue; // still holding some
     if (existingWatchIds.has(stockId)) continue; // already tracked
 
-    const watchItem = createWatchItem({
-      id: genId('watch'),
-      stockId,
-      stockName: sellTx.stockName,
-      source: 'sold',
-      soldPrice: sellTx.price,
-      soldAt: sellTx.dateTime,
-    });
-    WatchlistRepository.save(watchItem);
-    added.push(watchItem);
+    added.push(
+      createWatchItem({
+        id: genId('watch'),
+        stockId,
+        stockName: sellTx.stockName,
+        source: 'sold',
+        soldPrice: sellTx.price,
+        soldAt: sellTx.dateTime,
+      })
+    );
   }
+  if (added.length > 0) await WatchlistRepository.saveMany(added);
   return added;
 }
 
-function removeWatchItem(id) {
-  WatchlistRepository.remove(id);
+async function removeWatchItem(id) {
+  return WatchlistRepository.remove(id);
 }
 
 export { getAllWatchItems, addWatchItem, removeWatchItem, autoAddFullyClosedFromTransactions };
