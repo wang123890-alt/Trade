@@ -7,6 +7,7 @@ const KEYS = {
   transactions: 'trade_app.transactions.v1',
   watchlist: 'trade_app.watchlist.v1',
   manualPrices: 'trade_app.manual_prices.v1',
+  stockNotes: 'trade_app.stock_notes.v1',
 };
 
 function readList(key) {
@@ -92,4 +93,33 @@ const ManualPriceRepository = {
   },
 };
 
-export { TransactionRepository, WatchlistRepository, ManualPriceRepository };
+// Per-stock 看法紀錄 timeline, shared by the Holdings and Watchlist detail
+// pages (both point at the same stockId). Append-only: notes are never
+// edited or deleted, only added.
+const StockNotesRepository = {
+  getAll(stockId) {
+    try {
+      const raw = localStorage.getItem(KEYS.stockNotes);
+      const all = raw ? JSON.parse(raw) : {};
+      return all[stockId] || [];
+    } catch {
+      return [];
+    }
+  },
+  add(stockId, text) {
+    let all;
+    try {
+      const raw = localStorage.getItem(KEYS.stockNotes);
+      all = raw ? JSON.parse(raw) : {};
+    } catch {
+      all = {};
+    }
+    if (!all[stockId]) all[stockId] = [];
+    const note = { time: new Date().toISOString(), text };
+    all[stockId].push(note);
+    localStorage.setItem(KEYS.stockNotes, JSON.stringify(all));
+    return note;
+  },
+};
+
+export { TransactionRepository, WatchlistRepository, ManualPriceRepository, StockNotesRepository };

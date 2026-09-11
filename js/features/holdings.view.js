@@ -1,6 +1,7 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
+import { navigate } from '../router.js';
 
 function renderHoldingsView(container) {
   render(container);
@@ -31,9 +32,11 @@ function render(container) {
       <div class="card" data-stock-id="${p.stockId}">
         <div style="display:flex; align-items:flex-start; justify-content:space-between;">
           <div>
-            <div style="font-size:15px; font-weight:700;">${p.stockName}
-              <span class="text-faint" style="font-weight:500; font-size:12.5px;">${p.stockId}</span>
-            </div>
+            <button class="stock-link" data-action="view-detail" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit;">
+              <div style="font-size:15px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border);">${p.stockName}
+                <span class="text-faint" style="font-weight:500; font-size:12.5px;">${p.stockId}</span>
+              </div>
+            </button>
             <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
               持有 ${p.totalQuantity} 股 · 成本均價 ${p.averageCost.toFixed(2)}
             </div>
@@ -57,6 +60,13 @@ function render(container) {
     `;
     })
     .join('');
+
+  list.querySelectorAll('[data-action="view-detail"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const cardEl = btn.closest('[data-stock-id]');
+      navigate('detail', cardEl.getAttribute('data-stock-id'));
+    });
+  });
 
   list.querySelectorAll('[data-action="save-price"]').forEach((btn) => {
     btn.addEventListener('click', () => {

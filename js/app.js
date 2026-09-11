@@ -2,6 +2,7 @@ import { registerRoute, initRouter } from './router.js';
 import { renderOverviewView } from './features/overview.view.js';
 import { renderHoldingsView } from './features/holdings.view.js';
 import { renderTransactionsView } from './features/transactions.view.js';
+import { renderStockDetailView } from './features/stock-detail.view.js';
 
 function renderPlaceholder(title, phaseNote) {
   return (container) => {
@@ -15,6 +16,7 @@ function renderPlaceholder(title, phaseNote) {
 registerRoute('overview', renderOverviewView);
 registerRoute('holdings', renderHoldingsView);
 registerRoute('transactions', renderTransactionsView);
+registerRoute('detail', renderStockDetailView);
 registerRoute('watchlist', renderPlaceholder('觀察名單', '尚未實作（Phase 9）'));
 registerRoute('settings', renderPlaceholder('資料設定', '尚未實作（Phase 10：CSV/JSON匯出匯入）'));
 
