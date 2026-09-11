@@ -1,4 +1,6 @@
 import { exportAsJson, exportTransactionsAsCsv, importFromPayload } from '../data/importExport.js';
+import { autoAddFullyClosedFromTransactions } from './watchlist.js';
+import { TransactionRepository } from '../data/storage.js';
 
 function renderSettingsView(container) {
   container.innerHTML = `
@@ -50,11 +52,20 @@ function renderSettingsView(container) {
       const warningHtml = result.warnings.length > 0
         ? `<div class="error-banner">合併後發現問題：${result.warnings.join('；')}，建議到交易紀錄頁檢查</div>`
         : '';
+
+      const autoWatched = autoAddFullyClosedFromTransactions(TransactionRepository.getAll());
+      const autoWatchHtml = autoWatched.length > 0
+        ? `<div class="card" style="background:var(--yellow-dim); border-color:rgba(251,191,36,0.25); margin-bottom:12px;">
+             自動加入觀察名單 ${autoWatched.length} 檔已賣光的標的：${autoWatched.map((w) => w.stockName).join('、')}
+           </div>`
+        : '';
+
       resultBox.innerHTML = `
         <div class="card" style="background:var(--green-dim); border-color:rgba(52,211,153,0.25); margin-bottom:12px;">
           匯入完成：新增 ${result.added.transactions} 筆交易、${result.added.watchlist} 筆觀察項目
           （略過重複 ${result.skipped.transactions + result.skipped.watchlist} 筆）
         </div>
+        ${autoWatchHtml}
         ${warningHtml}
       `;
       e.target.value = '';
