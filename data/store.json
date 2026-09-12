@@ -1760,6 +1760,46 @@
       "soldAt": "2026-07-28T00:00:00",
       "addedAt": "2026-09-12T04:02:58.651Z",
       "notes": []
+    },
+    {
+      "id": "watch_mty8spx7_embo6s",
+      "stockId": "1513",
+      "stockName": "中興電",
+      "source": "sold",
+      "soldPrice": 165.5,
+      "soldAt": "2026-09-07",
+      "addedAt": "2026-09-12T10:28:44.731Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mty8spx8_otm8g0",
+      "stockId": "2481",
+      "stockName": "強茂",
+      "source": "sold",
+      "soldPrice": 154,
+      "soldAt": "2026-09-08",
+      "addedAt": "2026-09-12T10:28:44.732Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mty8spx8_fkg3dh",
+      "stockId": "6213",
+      "stockName": "聯茂",
+      "source": "sold",
+      "soldPrice": 525,
+      "soldAt": "2026-09-03",
+      "addedAt": "2026-09-12T10:28:44.732Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mty8spx8_rwu94d",
+      "stockId": "6426",
+      "stockName": "統新",
+      "source": "sold",
+      "soldPrice": 294,
+      "soldAt": "2026-09-09",
+      "addedAt": "2026-09-12T10:28:44.732Z",
+      "notes": []
     }
   ],
   "manualPrices": {
