@@ -65,7 +65,8 @@ const FinMindProvider = {
 
   async getQuote(stockId) {
     // FinMind's free tier has no true intraday quote; the latest daily bar's
-    // close stands in for "current price" until a real quote source is added.
+    // close stands in for "current price". Prefer TwseRealtimeProvider (or
+    // getLiveQuote below) when an intraday price is wanted.
     const today = new Date();
     const start = new Date(today);
     start.setDate(start.getDate() - 10); // small window, just need the latest bar
@@ -77,6 +78,102 @@ const FinMindProvider = {
     return { price: latest.close, date: latest.date };
   },
 };
+
+const TWSE_REALTIME_BASE = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
+
+function parseTwseDate(d) {
+  if (!d || d.length !== 8) return new Date().toISOString().slice(0, 10);
+  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+}
+
+/** Best-effort intraday quote from TWSE's public real-time feed
+ * (mis.twse.com.tw — the same source most Taiwan stock apps/sites use for
+ * live quotes). Free, no API key, but unofficial: never throws, just
+ * returns null on any failure so callers fall back to a daily close. */
+const TwseRealtimeProvider = {
+  async getQuote(stockId) {
+    // A stock's market (上市 vs 上櫃) isn't known ahead of time, so try
+    // both prefixes — the wrong one simply comes back with no match.
+    for (const market of ['tse', 'otc']) {
+      try {
+        const url = `${TWSE_REALTIME_BASE}?ex_ch=${market}_${stockId}.tw&json=1&delay=0`;
+        const response = await fetch(url);
+        if (!response.ok) continue;
+        const payload = await response.json();
+        const row = payload?.msgArray?.[0];
+        if (!row) continue;
+        const date = parseTwseDate(row.d);
+        const traded = parseFloat(row.z); // 最新成交價；開盤前/無成交時是 '-'
+        if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true };
+        const prevClose = parseFloat(row.y); // 昨收，作為尚無成交時的退而求其次
+        if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false };
+      } catch (err) {
+        // Network error, blocked, or unexpected shape — try the other
+        // market prefix, then give up (getLiveQuote falls back to FinMind).
+      }
+    }
+    return null;
+  },
+};
+
+// Yahoo Finance's chart API (query1.finance.yahoo.com) has real intraday
+// data for TW-listed stocks but sends no CORS header, so a pure front-end
+// page (no backend of its own) cannot read its response directly. Routed
+// through a public CORS-passthrough proxy instead — the proxy only relays
+// bytes, it never sees anything besides the stock code being requested.
+// Public proxies are themselves flaky (observed both of these return a
+// transient 5xx within the same minute during testing), so more than one is
+// tried in order rather than trusting a single one to be up.
+const CORS_PROXIES = [
+  (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+  (target) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+];
+const YAHOO_CHART_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
+
+/** Best-effort intraday quote from Yahoo Finance, used when TWSE's own feed
+ * doesn't come back with anything. Tries the listed (.TW) suffix first, then
+ * OTC (.TWO) — same reasoning as TwseRealtimeProvider not knowing a stock's
+ * market ahead of time — and for each suffix tries each CORS proxy in turn.
+ * Never throws; returns null when nothing works. */
+const YahooFinanceProvider = {
+  async getQuote(stockId) {
+    for (const suffix of ['TW', 'TWO']) {
+      const target = `${YAHOO_CHART_BASE}/${stockId}.${suffix}?interval=1m&range=1d`;
+      for (const buildProxyUrl of CORS_PROXIES) {
+        try {
+          const response = await fetch(buildProxyUrl(target));
+          if (!response.ok) continue;
+          const payload = await response.json();
+          const meta = payload?.chart?.result?.[0]?.meta;
+          if (!meta) continue;
+          const price = meta.regularMarketPrice;
+          if (!Number.isFinite(price)) continue;
+          const date = meta.regularMarketTime
+            ? new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10);
+          return { price, date, isIntraday: true };
+        } catch (err) {
+          // This proxy is down or the response was unexpected — try the
+          // next proxy, then the OTC suffix, then give up (getLiveQuote
+          // falls back to FinMind).
+        }
+      }
+    }
+    return null;
+  },
+};
+
+/** The quote callers should actually use: TWSE's live feed first, Yahoo
+ * Finance (via CORS proxy) if that has nothing, and FinMind's daily close
+ * only as the last resort — FinMind is only ever accurate after the market
+ * closes, so it's a safety net rather than a real intraday source. */
+async function getLiveQuote(stockId) {
+  const twse = await TwseRealtimeProvider.getQuote(stockId);
+  if (twse) return twse;
+  const yahoo = await YahooFinanceProvider.getQuote(stockId);
+  if (yahoo) return yahoo;
+  return FinMindProvider.getQuote(stockId);
+}
 
 /** Fallback when the live provider is unreachable: parse a user-pasted CSV.
  * Expected columns (header row required): date,open,high,low,close,volume */
@@ -115,4 +212,4 @@ function defaultStartDate() {
   return d.toISOString().slice(0, 10);
 }
 
-export { FinMindProvider, CsvProvider, MarketDataError };
+export { FinMindProvider, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote, CsvProvider, MarketDataError };
