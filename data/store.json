@@ -1608,6 +1608,8 @@
       "notes": []
     }
   ],
-  "manualPrices": {},
+  "manualPrices": {
+    "2886": 51.7
+  },
   "stockNotes": {}
 }
