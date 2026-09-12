@@ -1,10 +1,11 @@
 // Plain Node test runner. Run with: node tests/marketdata.test.js
 // The CSV fallback path needs no network and is tested synchronously.
-// FinMindProvider's and TwseRealtimeProvider's live API calls were verified
-// manually against the real endpoints; here they're tested against a mocked
-// global.fetch so `node tests/*.test.js` never depends on network access.
+// FinMindProvider's, TwseRealtimeProvider's and YahooFinanceProvider's live
+// API calls were verified manually against the real endpoints; here they're
+// tested against a mocked global.fetch so `node tests/*.test.js` never
+// depends on network access.
 import assert from 'node:assert/strict';
-import { CsvProvider, MarketDataError, TwseRealtimeProvider, getLiveQuote } from '../js/data/marketdata.js';
+import { CsvProvider, MarketDataError, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote } from '../js/data/marketdata.js';
 
 let passed = 0;
 let failed = 0;
@@ -96,21 +97,72 @@ await testAsync('TwseRealtimeProvider.getQuote returns null (never throws) when 
   assert.equal(quote, null);
 });
 
-await testAsync('getLiveQuote prefers the intraday quote over FinMind\'s daily close', async () => {
+await testAsync('YahooFinanceProvider.getQuote routes through the CORS proxy and reads regularMarketPrice', async () => {
+  globalThis.fetch = async (url) => {
+    assert.ok(url.startsWith('https://api.allorigins.win/raw?url='));
+    assert.ok(decodeURIComponent(url).includes('query1.finance.yahoo.com/v8/finance/chart/2330.TW'));
+    return {
+      ok: true,
+      json: async () => ({
+        chart: { result: [{ meta: { regularMarketPrice: 1090, regularMarketTime: 1789104608 } }] },
+      }),
+    };
+  };
+  const quote = await YahooFinanceProvider.getQuote('2330');
+  assert.equal(quote.price, 1090);
+  assert.equal(quote.isIntraday, true);
+});
+
+await testAsync('YahooFinanceProvider.getQuote tries the .TWO (OTC) suffix when .TW has no price on any proxy', async () => {
+  const targets = [];
+  globalThis.fetch = async (url) => {
+    const target = decodeURIComponent(url.split('url=')[1] ?? url.split('quest=')[1]);
+    targets.push(target);
+    if (target.includes('.TW?')) return { ok: true, json: async () => ({ chart: { result: [{ meta: {} }] } }) };
+    return { ok: true, json: async () => ({ chart: { result: [{ meta: { regularMarketPrice: 55.5 } }] } }) };
+  };
+  const quote = await YahooFinanceProvider.getQuote('6488');
+  assert.equal(quote.price, 55.5);
+  assert.ok(targets.some((t) => t.includes('6488.TW?')));
+  assert.ok(targets.some((t) => t.includes('6488.TWO?')));
+});
+
+await testAsync('YahooFinanceProvider.getQuote returns null (never throws) when the proxy is unreachable', async () => {
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  const quote = await YahooFinanceProvider.getQuote('2330');
+  assert.equal(quote, null);
+});
+
+await testAsync('getLiveQuote prefers TWSE\'s intraday quote over Yahoo and FinMind', async () => {
   globalThis.fetch = async (url) => {
     if (url.includes('mis.twse.com.tw')) {
       return { ok: true, json: async () => ({ msgArray: [{ z: '1090.00', y: '1080.00', d: '20260912' }] }) };
     }
-    throw new Error('should not fall back to FinMind when intraday succeeds');
+    throw new Error('should not reach Yahoo or FinMind when TWSE succeeds');
   };
   const quote = await getLiveQuote('2330');
   assert.equal(quote.price, 1090);
   assert.equal(quote.isIntraday, true);
 });
 
-await testAsync('getLiveQuote falls back to FinMind\'s daily close when the intraday feed is unreachable', async () => {
+await testAsync('getLiveQuote falls back to Yahoo (via proxy) when TWSE has nothing', async () => {
   globalThis.fetch = async (url) => {
     if (url.includes('mis.twse.com.tw')) throw new TypeError('Failed to fetch');
+    if (url.includes('api.allorigins.win')) {
+      return { ok: true, json: async () => ({ chart: { result: [{ meta: { regularMarketPrice: 1095 } }] } }) };
+    }
+    throw new Error('should not fall back to FinMind when Yahoo succeeds');
+  };
+  const quote = await getLiveQuote('2330');
+  assert.equal(quote.price, 1095);
+  assert.equal(quote.isIntraday, true);
+});
+
+await testAsync('getLiveQuote falls back to FinMind\'s daily close only when both TWSE and Yahoo fail', async () => {
+  globalThis.fetch = async (url) => {
+    if (url.includes('mis.twse.com.tw') || url.includes('api.allorigins.win')) {
+      throw new TypeError('Failed to fetch');
+    }
     return {
       ok: true,
       json: async () => ({
