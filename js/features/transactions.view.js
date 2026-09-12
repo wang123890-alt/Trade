@@ -1,6 +1,7 @@
 import { recompute, addTransaction, deleteTransaction } from './transactions.js';
 import { addWatchItem } from './watchlist.js';
-import { formatMoney, formatDate } from '../utils/format.js';
+import { ManualPriceRepository } from '../data/storage.js';
+import { formatMoney, formatDate, pnlClass } from '../utils/format.js';
 
 // Taiwan brokerage standard rates: transaction fee ~0.1425% on both BUY/SELL,
 // transaction tax 0.3% on SELL only (no tax on BUY).
@@ -156,45 +157,153 @@ function renderTransactionsView(container) {
   renderList(container);
 }
 
+/** A BUY that's been partially sold used to show as two disconnected raw
+ * rows (the original BUY at full quantity, and the SELL) with no visible
+ * link between them. Instead, each BUY is expanded here into: one row per
+ * SELL that closed part of it (already-sold quantity + realized P&L), plus
+ * — if anything is left — one row for the remaining quantity and its
+ * residual value. A SELL that couldn't be matched to any BUY (over-sell,
+ * caught by FIFO as an error rather than blocking the whole recompute) still
+ * needs to show up somewhere, so it gets its own flagged row. */
+function buildDisplayRows(transactions, matches, openLots, errors, manualPrices) {
+  const matchesByBuyId = {};
+  for (const m of matches) {
+    (matchesByBuyId[m.buyTransactionId] ??= []).push(m);
+  }
+
+  const rows = [];
+  for (const tx of transactions) {
+    if (tx.type !== 'BUY') continue;
+
+    for (const m of matchesByBuyId[tx.id] || []) {
+      rows.push({
+        kind: 'sold',
+        date: m.closedAt,
+        stockId: tx.stockId,
+        stockName: tx.stockName,
+        quantity: m.quantity,
+        buyPrice: m.buyPrice,
+        sellPrice: m.sellPrice,
+        realizedPnL: m.realizedPnL,
+        deleteId: m.sellTransactionId,
+      });
+    }
+
+    const lot = (openLots[tx.stockId] || []).find((l) => l.txId === tx.id);
+    const remainingQty = lot ? lot.remainingQty : 0;
+    if (remainingQty > 0) {
+      const marketPrice = manualPrices[tx.stockId] ?? null;
+      rows.push({
+        kind: 'holding',
+        date: tx.dateTime,
+        stockId: tx.stockId,
+        stockName: tx.stockName,
+        quantity: remainingQty,
+        costPrice: tx.price,
+        marketPrice,
+        residualValue: marketPrice != null ? marketPrice * remainingQty : null,
+        deleteId: tx.id,
+      });
+    }
+  }
+
+  for (const { transaction: tx } of errors) {
+    rows.push({
+      kind: 'unmatched-sell',
+      date: tx.dateTime,
+      stockId: tx.stockId,
+      stockName: tx.stockName,
+      quantity: tx.quantity,
+      price: tx.price,
+      deleteId: tx.id,
+    });
+  }
+
+  rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return rows;
+}
+
+/** Each row has a left (stock/date info) and right (amount) half; the
+ * caller wraps `right` together with the delete button in one flex group,
+ * matching the original single-transaction row layout. */
+function renderRow(row) {
+  const header = `${row.stockName} <span class="text-faint" style="font-weight:500;">${row.stockId}</span>`;
+
+  if (row.kind === 'sold') {
+    return {
+      left: `
+        <div style="font-size:13.5px; font-weight:600;">
+          ${header}
+          <span class="tag tag-green" style="margin-left:6px;">已賣出</span>
+        </div>
+        <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
+          ${formatDate(row.date)} · 已賣出 ${row.quantity}股 · ${row.buyPrice} → ${row.sellPrice}
+        </div>
+      `,
+      right: `<div class="${pnlClass(row.realizedPnL)}" style="font-size:13px; font-weight:600;">${formatMoney(row.realizedPnL)}</div>`,
+    };
+  }
+
+  if (row.kind === 'holding') {
+    return {
+      left: `
+        <div style="font-size:13.5px; font-weight:600;">
+          ${header}
+          <span class="tag" style="margin-left:6px; color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">持有中</span>
+        </div>
+        <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
+          ${formatDate(row.date)} · 剩餘 ${row.quantity}股 @ 成本 ${row.costPrice}
+        </div>
+      `,
+      right: `<div style="font-size:13px; font-weight:600;">
+          ${row.residualValue != null ? formatMoney(row.residualValue) : '<span class="text-faint" style="font-weight:500; font-size:12px;">未輸入現價</span>'}
+        </div>`,
+    };
+  }
+
+  // kind === 'unmatched-sell'
+  return {
+    left: `
+      <div style="font-size:13.5px; font-weight:600;">
+        ${header}
+        <span class="tag tag-green" style="margin-left:6px;">賣出</span>
+        <span class="tag tag-yellow" style="margin-left:4px;">⚠ 無對應買進</span>
+      </div>
+      <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
+        ${formatDate(row.date)} · ${row.quantity}股 @ ${row.price}
+      </div>
+    `,
+    right: `<div style="font-size:13px; font-weight:600;">${formatMoney(row.price * row.quantity)}</div>`,
+  };
+}
+
 function renderList(container) {
   const listEl = container.querySelector('#tx-list');
-  const { transactions } = recompute();
+  const manualPrices = ManualPriceRepository.getAll();
+  const { transactions, matches, openLots, errors } = recompute(manualPrices);
 
   if (transactions.length === 0) {
     listEl.innerHTML = '<div class="empty-state">還沒有任何交易紀錄</div>';
     return;
   }
 
-  const sorted = [...transactions].sort(
-    (a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-  );
+  const rows = buildDisplayRows(transactions, matches, openLots, errors, manualPrices);
 
-  listEl.innerHTML = sorted
-    .map(
-      (tx) => `
-    <div class="tx-row" data-tx-id="${tx.id}">
-      <div>
-        <div style="font-size:13.5px; font-weight:600;">
-          ${tx.stockName} <span class="text-faint" style="font-weight:500;">${tx.stockId}</span>
-          <span class="tag ${tx.type === 'BUY' ? 'tag-red' : 'tag-green'}" style="margin-left:6px;">
-            ${tx.type === 'BUY' ? '買進' : '賣出'}
-          </span>
-        </div>
-        <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
-          ${formatDate(tx.dateTime)} · ${tx.quantity}股 @ ${tx.price}
-        </div>
-      </div>
+  listEl.innerHTML = rows
+    .map((row) => {
+      const { left, right } = renderRow(row);
+      return `
+    <div class="tx-row" data-tx-id="${row.deleteId}">
+      <div>${left}</div>
       <div style="display:flex; align-items:center; gap:4px;">
-        <div style="text-align:right; margin-right:6px;">
-          <div style="font-size:13px; font-weight:600;">${formatMoney(tx.price * tx.quantity)}</div>
-        </div>
+        <div style="text-align:right; margin-right:6px;">${right}</div>
         <button class="icon-btn" data-action="delete" title="刪除">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
         </button>
       </div>
     </div>
-  `
-    )
+  `;
+    })
     .join('');
 
   listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
@@ -202,9 +311,9 @@ function renderList(container) {
       const row = btn.closest('[data-tx-id]');
       const id = row.getAttribute('data-tx-id');
       btn.disabled = true;
-      const { success, errors } = await deleteTransaction(id);
+      const { success, errors: deleteErrors } = await deleteTransaction(id);
       if (!success) {
-        alert(errors.join('；'));
+        alert(deleteErrors.join('；'));
         btn.disabled = false;
         return;
       }
