@@ -1276,7 +1276,338 @@
       "note": "元大對帳單匯入"
     }
   ],
-  "watchlist": [],
+  "watchlist": [
+    {
+      "id": "watch_mtxv0maj_3etivc",
+      "stockId": "1515",
+      "stockName": "力山",
+      "source": "sold",
+      "soldPrice": 31.2,
+      "soldAt": "2026-08-19T00:00:02",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_hyb2ks",
+      "stockId": "1605",
+      "stockName": "華新",
+      "source": "sold",
+      "soldPrice": 36.5,
+      "soldAt": "2026-08-19T00:00:01",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_p3kzu0",
+      "stockId": "2303",
+      "stockName": "聯電",
+      "source": "sold",
+      "soldPrice": 119,
+      "soldAt": "2026-08-27T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_ghgepi",
+      "stockId": "2305",
+      "stockName": "全友",
+      "source": "sold",
+      "soldPrice": 30.2,
+      "soldAt": "2026-08-14T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_gnhzxc",
+      "stockId": "2317",
+      "stockName": "鴻海",
+      "source": "sold",
+      "soldPrice": 265,
+      "soldAt": "2026-06-08T00:00:02",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_ovyy7v",
+      "stockId": "2327",
+      "stockName": "國巨*",
+      "source": "sold",
+      "soldPrice": 1010,
+      "soldAt": "2026-07-06T00:00:01",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_ipc9s8",
+      "stockId": "2393",
+      "stockName": "億光",
+      "source": "sold",
+      "soldPrice": 67.1,
+      "soldAt": "2026-06-29T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_3etlbt",
+      "stockId": "2408",
+      "stockName": "南亞科",
+      "source": "sold",
+      "soldPrice": 450.5,
+      "soldAt": "2026-08-05T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_spa7fq",
+      "stockId": "2409",
+      "stockName": "友達",
+      "source": "sold",
+      "soldPrice": 30.65,
+      "soldAt": "2026-07-07T00:00:01",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_ov9mva",
+      "stockId": "2449",
+      "stockName": "京元電子",
+      "source": "sold",
+      "soldPrice": 300.5,
+      "soldAt": "2026-05-11T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_45l0r7",
+      "stockId": "2489",
+      "stockName": "瑞軒",
+      "source": "sold",
+      "soldPrice": 42.15,
+      "soldAt": "2026-04-15T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_ing0gu",
+      "stockId": "2540",
+      "stockName": "愛山林",
+      "source": "sold",
+      "soldPrice": 57.7,
+      "soldAt": "2026-08-04T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_xii7od",
+      "stockId": "2883",
+      "stockName": "凱基金",
+      "source": "sold",
+      "soldPrice": 30.7,
+      "soldAt": "2026-08-10T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_b4a1d2",
+      "stockId": "2885",
+      "stockName": "元大金",
+      "source": "sold",
+      "soldPrice": 71.1,
+      "soldAt": "2026-07-07T00:00:02",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_sb9k2f",
+      "stockId": "2887",
+      "stockName": "台新新光金",
+      "source": "sold",
+      "soldPrice": 24.3,
+      "soldAt": "2026-04-17T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_tv2vni",
+      "stockId": "3023",
+      "stockName": "信邦",
+      "source": "sold",
+      "soldPrice": 309.5,
+      "soldAt": "2026-08-10T00:00:02",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_vbms3f",
+      "stockId": "3092",
+      "stockName": "鴻碩",
+      "source": "sold",
+      "soldPrice": 33.15,
+      "soldAt": "2026-04-23T00:00:01",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_wdekvp",
+      "stockId": "3231",
+      "stockName": "緯創",
+      "source": "sold",
+      "soldPrice": 175.5,
+      "soldAt": "2026-08-24T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_2f94wt",
+      "stockId": "3287",
+      "stockName": "廣寰科",
+      "source": "sold",
+      "soldPrice": 28.05,
+      "soldAt": "2026-04-13T00:00:01",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_ajhky4",
+      "stockId": "3450",
+      "stockName": "聯鈞",
+      "source": "sold",
+      "soldPrice": 438.5,
+      "soldAt": "2026-05-14T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_b9btnz",
+      "stockId": "3481",
+      "stockName": "群創",
+      "source": "sold",
+      "soldPrice": 48.35,
+      "soldAt": "2026-06-08T00:00:03",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_76u8ho",
+      "stockId": "3583",
+      "stockName": "辛耘",
+      "source": "sold",
+      "soldPrice": 797,
+      "soldAt": "2026-07-13T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_y1wgbc",
+      "stockId": "4551",
+      "stockName": "智伸科",
+      "source": "sold",
+      "soldPrice": 162.5,
+      "soldAt": "2026-08-19T00:00:03",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_xztsa6",
+      "stockId": "4967",
+      "stockName": "十銓",
+      "source": "sold",
+      "soldPrice": 285.5,
+      "soldAt": "2026-05-04T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_16ojix",
+      "stockId": "5292",
+      "stockName": "華懋",
+      "source": "sold",
+      "soldPrice": 204.5,
+      "soldAt": "2026-08-24T00:00:02",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_6vhp9x",
+      "stockId": "5351",
+      "stockName": "鈺創",
+      "source": "sold",
+      "soldPrice": 83.6,
+      "soldAt": "2026-07-21T00:00:04",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_8dv4ui",
+      "stockId": "6173",
+      "stockName": "信昌電",
+      "source": "sold",
+      "soldPrice": 207,
+      "soldAt": "2026-08-24T00:00:03",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_j0i3r0",
+      "stockId": "6182",
+      "stockName": "合晶",
+      "source": "sold",
+      "soldPrice": 126,
+      "soldAt": "2026-07-21T00:00:01",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_a8g3aq",
+      "stockId": "6187",
+      "stockName": "萬潤",
+      "source": "sold",
+      "soldPrice": 940,
+      "soldAt": "2026-07-21T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_q62ixr",
+      "stockId": "6531",
+      "stockName": "愛普*",
+      "source": "sold",
+      "soldPrice": 972,
+      "soldAt": "2026-07-06T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_puuv56",
+      "stockId": "0056",
+      "stockName": "元大高股息",
+      "source": "sold",
+      "soldPrice": 41.06,
+      "soldAt": "2026-04-30T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_1zohxj",
+      "stockId": "00881",
+      "stockName": "國泰台灣科技龍頭",
+      "source": "sold",
+      "soldPrice": 51,
+      "soldAt": "2026-05-15T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    },
+    {
+      "id": "watch_mtxv0maj_oosh9e",
+      "stockId": "00935",
+      "stockName": "野村臺灣新科技50",
+      "source": "sold",
+      "soldPrice": 51.2,
+      "soldAt": "2026-07-28T00:00:00",
+      "addedAt": "2026-09-12T04:02:58.651Z",
+      "notes": []
+    }
+  ],
   "manualPrices": {},
   "stockNotes": {}
 }
