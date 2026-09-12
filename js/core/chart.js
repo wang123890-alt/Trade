@@ -40,6 +40,35 @@ function renderKLineChart(bars, {
   const totalHeight = chartBottom + axisHeight;
 
   const padding = { top: 44, right: 10, bottom: 10, left: 10 };
+  const plotWidthForSlot = width - padding.left - padding.right;
+  const barSlot = plotWidthForSlot / bars.length;
+  const candleWidth = Math.max(2, Math.min(18, barSlot * 0.6));
+
+  function xAt(i) {
+    return padding.left + barSlot * i + barSlot / 2;
+  }
+
+  // Markers close together in time (e.g. a quick buy/sell round trip) would
+  // otherwise print their price labels on top of each other — stagger each
+  // one progressively higher than the last nearby marker instead. Computed
+  // up front so padding.top can grow to fit however high the staggering
+  // pushes the tallest label.
+  const MARKER_OVERLAP_DISTANCE = barSlot * 4;
+  const sortedMarkers = [...markers].sort((a, b) => a.index - b.index);
+  let lastMarkerX = null;
+  let staggerLevel = 0;
+  let maxStaggerLevel = 0;
+  const markerStaggerLevels = sortedMarkers.map((m) => {
+    const x = xAt(m.index);
+    staggerLevel = lastMarkerX != null && Math.abs(x - lastMarkerX) < MARKER_OVERLAP_DISTANCE
+      ? staggerLevel + 1
+      : 0;
+    lastMarkerX = x;
+    maxStaggerLevel = Math.max(maxStaggerLevel, staggerLevel);
+    return staggerLevel;
+  });
+  padding.top += maxStaggerLevel * 22;
+
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 
@@ -50,12 +79,6 @@ function renderKLineChart(bars, {
   const maxPrice = Math.max(...allHighs, ...(allMaValues.length ? allMaValues : allHighs));
   const priceRange = maxPrice - minPrice || 1;
 
-  const barSlot = plotWidth / bars.length;
-  const candleWidth = Math.max(2, Math.min(18, barSlot * 0.6));
-
-  function xAt(i) {
-    return padding.left + barSlot * i + barSlot / 2;
-  }
   function yAt(price) {
     return padding.top + plotHeight * (1 - (price - minPrice) / priceRange);
   }
@@ -111,16 +134,16 @@ function renderKLineChart(bars, {
     return `<polyline points="${points}" fill="none" stroke="${series.color}" stroke-width="1.6"></polyline>`;
   }).join('');
 
-  const markerEls = markers.map((m) => {
+  const markerEls = sortedMarkers.map((m, i) => {
     if (m.index < 0 || m.index >= bars.length) return '';
     const x = xAt(m.index);
     const candleTopY = yAt(bars[m.index].high);
     const circleY = candleTopY - 6;
-    const textY = circleY - 26;
+    const textY = circleY - 28 - markerStaggerLevels[i] * 22;
     return `
-      <line x1="${x}" y1="${textY + 5}" x2="${x}" y2="${circleY - 6}" stroke="${m.color}" stroke-width="1.2"></line>
+      <line x1="${x}" y1="${textY + 6}" x2="${x}" y2="${circleY - 6}" stroke="${m.color}" stroke-width="1.2"></line>
       <circle cx="${x}" cy="${circleY}" r="4" fill="var(--bg)" stroke="${m.color}" stroke-width="2"></circle>
-      <text x="${x}" y="${textY}" text-anchor="middle" font-size="14" fill="${m.color}" font-weight="700">${m.label}</text>
+      <text x="${x}" y="${textY}" text-anchor="middle" font-size="16" fill="${m.color}" font-weight="700">${m.label}</text>
     `;
   }).join('');
 
@@ -166,7 +189,7 @@ function renderKLineChart(bars, {
       } else if (isNewWeek) {
         // First trading day actually present for this ISO week — not
         // necessarily a Monday, since a week's trading days aren't fixed at 5.
-        axisEls.push(`<line x1="${x}" y1="${axisTop}" x2="${x}" y2="${weekTickY2}" stroke="var(--border)" stroke-width="1"></line>`);
+        axisEls.push(`<line x1="${x}" y1="${axisTop}" x2="${x}" y2="${weekTickY2}" stroke="var(--text-faint)" stroke-width="1"></line>`);
       }
     }
   } else {
@@ -176,7 +199,7 @@ function renderKLineChart(bars, {
     const labelStep = Math.max(1, Math.ceil(bars.length / maxLabels));
     for (let i = 0; i < bars.length; i += labelStep) {
       const x = xAt(i);
-      axisEls.push(`<line x1="${x}" y1="${axisTop}" x2="${x}" y2="${weekTickY2}" stroke="var(--border)" stroke-width="1"></line>`);
+      axisEls.push(`<line x1="${x}" y1="${axisTop}" x2="${x}" y2="${weekTickY2}" stroke="var(--text-faint)" stroke-width="1"></line>`);
       axisEls.push(`<text x="${x}" y="${labelY}" text-anchor="middle" font-size="10" fill="var(--text-faint)">${bars[i].date.slice(5)}</text>`);
     }
   }
