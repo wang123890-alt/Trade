@@ -97,8 +97,11 @@ function renderChartFromBars(chartArea, bars, stockTx) {
       const idx = bars.findIndex((b) => b.date === tx.dateTime.slice(0, 10));
       if (idx === -1) return null;
       return {
+        // Color alone (紅=買, 綠=賣) already tells buy from sell, so the
+        // label only needs the price — keeps it short enough to not
+        // collide with the candle or a nearby marker.
         index: idx,
-        label: `${tx.type === 'BUY' ? '買' : '賣'} ${tx.price}`,
+        label: `${tx.price}`,
         color: tx.type === 'BUY' ? 'var(--red)' : 'var(--green)',
       };
     })
