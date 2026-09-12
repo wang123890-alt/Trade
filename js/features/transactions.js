@@ -35,7 +35,7 @@ function recompute(marketPrices = {}) {
     .forEach((t) => { stockNames[t.stockId] = t.stockName; });
 
   const positions = computePositions(openLots, stockNames, marketPrices);
-  return { transactions, matches, positions, errors };
+  return { transactions, matches, positions, openLots, errors };
 }
 
 /**
