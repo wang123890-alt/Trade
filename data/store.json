@@ -1503,15 +1503,15 @@
       "id": "hist-20260728-1",
       "stockId": "00830",
       "stockName": "國泰費城半導體",
-      "type": "BUY",
+      "type": "SELL",
       "dateTime": "2026-07-28",
       "price": 81.25,
       "quantity": 660,
       "fee": 47,
-      "tax": 0,
+      "tax": 53,
       "strategy": "",
       "reason": "",
-      "note": "零股盤中，跌停價委託"
+      "note": "零股盤中賣出"
     },
     {
       "id": "hist-20260715-1",
