@@ -68,11 +68,13 @@ function renderOverviewView(container) {
       ${byStock.length === 0
         ? '<div class="empty-state">尚無已平倉交易</div>'
         : byStock
-            .map(
-              (g) => `
-        <div class="tx-row">
+            .map((g) => {
+              const latestTx = [...transactions].reverse().find((t) => t.stockId === g.stockId);
+              const stockName = latestTx?.stockName || g.stockId;
+              return `
+        <div class="tx-row" data-action="view-stock" data-stock-id="${g.stockId}" style="cursor:pointer;">
           <div>
-            <div style="font-size:13.5px; font-weight:600;">${g.stockId}</div>
+            <div style="font-size:13.5px; font-weight:600;">${stockName} <span class="text-faint" style="font-weight:500;">${g.stockId}</span></div>
             <div class="text-faint" style="font-size:11px; margin-top:2px;">
               ${g.closedCount} 筆 · 勝率 ${g.winRate != null ? g.winRate.toFixed(0) + '%' : '—'}
             </div>
@@ -81,8 +83,8 @@ function renderOverviewView(container) {
             ${formatMoney(g.totalRealizedPnL)}
           </div>
         </div>
-      `
-            )
+      `;
+            })
             .join('')}
     </div>
 
@@ -121,6 +123,12 @@ function renderOverviewView(container) {
     </div>
     ` : ''}
   `;
+
+  container.querySelectorAll('[data-action="view-stock"]').forEach((row) => {
+    row.addEventListener('click', () => {
+      navigate('detail', row.getAttribute('data-stock-id'));
+    });
+  });
 
   container.querySelectorAll('[data-action="toggle-pattern"]').forEach((row) => {
     row.addEventListener('click', () => {
