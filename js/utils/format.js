@@ -22,7 +22,8 @@ function formatDate(iso) {
 
 function pnlClass(n) {
   if (n == null) return 'text-dim';
-  return n > 0 ? 'text-green' : n < 0 ? 'text-red' : 'text-dim';
+  // Taiwan convention: red = 上漲/獲利, green = 下跌/虧損, 平盤（0）維持預設白字。
+  return n > 0 ? 'text-red' : n < 0 ? 'text-green' : '';
 }
 
 export { formatMoney, formatPercent, formatDate, pnlClass };
