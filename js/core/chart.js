@@ -7,6 +7,7 @@ function renderKLineChart(bars, {
   width = 1040,
   height = 300,
   volumeHeight = 70,
+  axisHeight = 22,
   maSeries = [], // [{ label, color, values }] — values same length as bars
   markers = [], // [{ index, label, color }]
 } = {}) {
@@ -14,7 +15,8 @@ function renderKLineChart(bars, {
 
   const hasVolume = bars.some((b) => b.volume != null);
   const volumeGap = hasVolume ? 16 : 0;
-  const totalHeight = height + (hasVolume ? volumeHeight + volumeGap : 0);
+  const chartBottom = height + (hasVolume ? volumeHeight + volumeGap : 0);
+  const totalHeight = chartBottom + axisHeight;
 
   const padding = { top: 20, right: 10, bottom: 10, left: 10 };
   const plotWidth = width - padding.left - padding.right;
@@ -96,6 +98,21 @@ function renderKLineChart(bars, {
     }).join('');
   }
 
+  // X-axis: baseline + evenly spaced tick marks and date labels below the
+  // chart (below the volume panel, when present).
+  const maxLabels = Math.max(2, Math.min(6, Math.floor(width / 130)));
+  const labelStep = Math.max(1, Math.ceil(bars.length / maxLabels));
+  const axisTop = chartBottom + 4;
+  const tickY2 = axisTop + 5;
+  const labelY = axisTop + 16;
+  const axisEls = [`<line x1="${padding.left}" y1="${axisTop}" x2="${width - padding.right}" y2="${axisTop}" stroke="var(--border)" stroke-width="1"></line>`];
+  for (let i = 0; i < bars.length; i += labelStep) {
+    const x = xAt(i);
+    axisEls.push(`<line x1="${x}" y1="${axisTop}" x2="${x}" y2="${tickY2}" stroke="var(--border)" stroke-width="1"></line>`);
+    axisEls.push(`<text x="${x}" y="${labelY}" text-anchor="middle" font-size="10" fill="var(--text-faint)">${bars[i].date.slice(5)}</text>`);
+  }
+  const axis = axisEls.join('');
+
   return `
     <svg viewBox="0 0 ${width} ${totalHeight}" width="100%" height="${totalHeight}" style="display:block;">
       ${gridLines}
@@ -103,6 +120,7 @@ function renderKLineChart(bars, {
       ${candles}
       ${markerEls}
       ${volumeBars}
+      ${axis}
     </svg>
   `;
 }
