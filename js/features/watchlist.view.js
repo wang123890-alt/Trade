@@ -25,10 +25,13 @@ function renderWatchlistView(container) {
     <div id="watch-list"></div>
   `;
 
-  container.querySelector('#watch-add-btn').addEventListener('click', () => {
+  container.querySelector('#watch-add-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const stockId = container.querySelector('#watch-stock-id').value.trim();
     const stockName = container.querySelector('#watch-stock-name').value.trim();
-    const { errors } = addWatchItem({ stockId, stockName, source: 'manual' });
+    btn.disabled = true;
+    const { errors } = await addWatchItem({ stockId, stockName, source: 'manual' });
+    btn.disabled = false;
     const errorBox = container.querySelector('#watch-form-errors');
     if (errors.length > 0) {
       errorBox.innerHTML = `<div class="error-banner">${errors.join('；')}</div>`;
@@ -81,9 +84,10 @@ function renderList(container) {
   });
 
   listEl.querySelectorAll('[data-action="remove"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const card = btn.closest('[data-watch-id]');
-      removeWatchItem(card.getAttribute('data-watch-id'));
+      btn.disabled = true;
+      await removeWatchItem(card.getAttribute('data-watch-id'));
       renderList(container);
     });
   });

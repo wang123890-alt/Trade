@@ -44,7 +44,7 @@ function recompute(marketPrices = {}) {
  * over-sell (caught by recompute after saving would be too late to prevent),
  * we validate against current holdings *before* saving.
  */
-function addTransaction(input) {
+async function addTransaction(input) {
   const validationErrors = validateTransaction(input);
   if (validationErrors.length > 0) return { transaction: null, errors: validationErrors };
 
@@ -58,7 +58,8 @@ function addTransaction(input) {
     return { transaction: null, errors: fifoErrors.map((e) => e.error.message) };
   }
 
-  TransactionRepository.save(transaction);
+  const result = await TransactionRepository.save(transaction);
+  if (!result.ok) return { transaction: null, errors: [syncErrorMessage(result.error)] };
   return { transaction, errors: [] };
 }
 
@@ -68,7 +69,7 @@ function addTransaction(input) {
  * is the "full recompute" rule: an edit that would make history inconsistent
  * (e.g. now over-selling) is rejected, not silently applied.
  */
-function editTransaction(id, changes) {
+async function editTransaction(id, changes) {
   const existing = TransactionRepository.getAll();
   const current = existing.find((t) => t.id === id);
   if (!current) return { transaction: null, errors: ['交易紀錄不存在'] };
@@ -83,7 +84,8 @@ function editTransaction(id, changes) {
     return { transaction: null, errors: fifoErrors.map((e) => e.error.message) };
   }
 
-  TransactionRepository.save(updated);
+  const result = await TransactionRepository.save(updated);
+  if (!result.ok) return { transaction: null, errors: [syncErrorMessage(result.error)] };
   return { transaction: updated, errors: [] };
 }
 
@@ -93,15 +95,20 @@ function editTransaction(id, changes) {
  * remaining history, and that is rejected rather than silently corrupting
  * downstream positions.
  */
-function deleteTransaction(id) {
+async function deleteTransaction(id) {
   const existing = TransactionRepository.getAll();
   const candidateList = existing.filter((t) => t.id !== id);
   const { errors: fifoErrors } = runFifo(candidateList);
   if (fifoErrors.length > 0) {
     return { success: false, errors: fifoErrors.map((e) => e.error.message) };
   }
-  TransactionRepository.remove(id);
+  const result = await TransactionRepository.remove(id);
+  if (!result.ok) return { success: false, errors: [syncErrorMessage(result.error)] };
   return { success: true, errors: [] };
+}
+
+function syncErrorMessage(error) {
+  return error?.message || '同步到 GitHub 失敗，請檢查網路連線或Token設定';
 }
 
 export { validateTransaction, recompute, addTransaction, editTransaction, deleteTransaction };

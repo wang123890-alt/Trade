@@ -74,7 +74,7 @@ function renderTransactionsView(container) {
   `;
 
   const form = container.querySelector('#tx-form');
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form).entries());
     const input = {
@@ -90,7 +90,13 @@ function renderTransactionsView(container) {
       reason: data.reason || '',
       note: data.note || '',
     };
-    const { errors } = addTransaction(input);
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '儲存中…';
+    const { errors } = await addTransaction(input);
+    submitBtn.disabled = false;
+    submitBtn.textContent = '新增交易';
 
     const errorBox = container.querySelector('#tx-form-errors');
     if (errors.length > 0) {
@@ -100,7 +106,7 @@ function renderTransactionsView(container) {
     errorBox.innerHTML = '';
     form.reset();
     renderList(container);
-    maybePromptAddToWatchlist(input);
+    await maybePromptAddToWatchlist(input);
   });
 
   renderList(container);
@@ -148,12 +154,14 @@ function renderList(container) {
     .join('');
 
   listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const row = btn.closest('[data-tx-id]');
       const id = row.getAttribute('data-tx-id');
-      const { success, errors } = deleteTransaction(id);
+      btn.disabled = true;
+      const { success, errors } = await deleteTransaction(id);
       if (!success) {
         alert(errors.join('；'));
+        btn.disabled = false;
         return;
       }
       renderList(container);
@@ -163,7 +171,7 @@ function renderList(container) {
 
 /** After a SELL that zeroes out the position, offer (never force) adding the
  * stock to the watchlist for continued observation. */
-function maybePromptAddToWatchlist(input) {
+async function maybePromptAddToWatchlist(input) {
   if (input.type !== 'SELL') return;
   const { positions } = recompute();
   const stillHeld = positions.some((p) => p.stockId === input.stockId);
@@ -174,7 +182,7 @@ function maybePromptAddToWatchlist(input) {
   );
   if (!wantsToWatch) return;
 
-  addWatchItem({
+  await addWatchItem({
     stockId: input.stockId,
     stockName: input.stockName,
     source: 'sold',

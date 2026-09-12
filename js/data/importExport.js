@@ -65,8 +65,10 @@ function validateImportPayload(payload) {
 }
 
 /** Merge imported transactions/watchlist into existing storage, skipping any
- * id already present. Returns a summary of what happened. */
-function importFromPayload(payload) {
+ * id already present. Returns a summary of what happened. Writes are
+ * batched into a single persist each (one GitHub commit per collection)
+ * rather than one per item, so a large import stays fast. */
+async function importFromPayload(payload) {
   const errors = validateImportPayload(payload);
   if (errors.length > 0) {
     return {
@@ -76,24 +78,30 @@ function importFromPayload(payload) {
     };
   }
 
-  const existingTx = TransactionRepository.getAll();
-  const existingTxIds = new Set(existingTx.map((t) => t.id));
-  let addedTx = 0;
-  let skippedTx = 0;
-  for (const t of payload.transactions) {
-    if (existingTxIds.has(t.id)) { skippedTx++; continue; }
-    TransactionRepository.save(t);
-    addedTx++;
+  const existingTxIds = new Set(TransactionRepository.getAll().map((t) => t.id));
+  const newTx = payload.transactions.filter((t) => !existingTxIds.has(t.id));
+  const skippedTx = payload.transactions.length - newTx.length;
+  if (newTx.length > 0) {
+    const result = await TransactionRepository.saveMany(newTx);
+    if (!result.ok) {
+      return {
+        success: false, errors: [result.error?.message || '同步失敗'], warnings: [],
+        added: { transactions: 0, watchlist: 0 }, skipped: { transactions: 0, watchlist: 0 },
+      };
+    }
   }
 
-  const existingWatch = WatchlistRepository.getAll();
-  const existingWatchIds = new Set(existingWatch.map((w) => w.id));
-  let addedWatch = 0;
-  let skippedWatch = 0;
-  for (const w of payload.watchlist) {
-    if (existingWatchIds.has(w.id)) { skippedWatch++; continue; }
-    WatchlistRepository.save(w);
-    addedWatch++;
+  const existingWatchIds = new Set(WatchlistRepository.getAll().map((w) => w.id));
+  const newWatch = payload.watchlist.filter((w) => !existingWatchIds.has(w.id));
+  const skippedWatch = payload.watchlist.length - newWatch.length;
+  if (newWatch.length > 0) {
+    const result = await WatchlistRepository.saveMany(newWatch);
+    if (!result.ok) {
+      return {
+        success: false, errors: [result.error?.message || '同步失敗'], warnings: [],
+        added: { transactions: newTx.length, watchlist: 0 }, skipped: { transactions: skippedTx, watchlist: 0 },
+      };
+    }
   }
 
   // Post-merge sanity check: the combined transaction history must still be
@@ -107,7 +115,7 @@ function importFromPayload(payload) {
     success: true,
     errors: [],
     warnings,
-    added: { transactions: addedTx, watchlist: addedWatch },
+    added: { transactions: newTx.length, watchlist: newWatch.length },
     skipped: { transactions: skippedTx, watchlist: skippedWatch },
   };
 }

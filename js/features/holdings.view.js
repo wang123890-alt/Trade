@@ -69,7 +69,7 @@ function render(container) {
   });
 
   list.querySelectorAll('[data-action="save-price"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const cardEl = btn.closest('[data-stock-id]');
       const stockId = cardEl.getAttribute('data-stock-id');
       const input = cardEl.querySelector('.price-input');
@@ -78,7 +78,13 @@ function render(container) {
         alert('請輸入有效的市價');
         return;
       }
-      ManualPriceRepository.set(stockId, price);
+      btn.disabled = true;
+      const result = await ManualPriceRepository.set(stockId, price);
+      if (!result.ok) {
+        alert(result.error?.message || '同步失敗');
+        btn.disabled = false;
+        return;
+      }
       render(container);
     });
   });
