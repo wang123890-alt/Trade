@@ -2,6 +2,21 @@ import { recompute, addTransaction, deleteTransaction } from './transactions.js'
 import { addWatchItem } from './watchlist.js';
 import { formatMoney, formatDate } from '../utils/format.js';
 
+// Taiwan brokerage standard rates: transaction fee ~0.1425% on both BUY/SELL,
+// transaction tax 0.3% on SELL only (no tax on BUY).
+const FEE_RATE = 0.001425;
+const TAX_RATE = 0.003;
+
+function computeFee(price, quantity) {
+  if (!(price > 0) || !(quantity > 0)) return 0;
+  return Math.round(price * quantity * FEE_RATE);
+}
+
+function computeTax(price, quantity, type) {
+  if (type !== 'SELL' || !(price > 0) || !(quantity > 0)) return 0;
+  return Math.round(price * quantity * TAX_RATE);
+}
+
 function renderTransactionsView(container) {
   container.innerHTML = `
     <div class="card" style="margin-bottom:16px;">
@@ -27,8 +42,8 @@ function renderTransactionsView(container) {
             </select>
           </div>
           <div class="form-field">
-            <label>交易日期時間</label>
-            <input type="datetime-local" name="dateTime" required>
+            <label>交易日期</label>
+            <input type="date" name="dateTime" required>
           </div>
         </div>
         <div class="form-row">
@@ -43,11 +58,11 @@ function renderTransactionsView(container) {
         </div>
         <div class="form-row">
           <div class="form-field">
-            <label>手續費</label>
+            <label>手續費（自動試算，可修改）</label>
             <input type="number" name="fee" step="0.01" min="0" value="0">
           </div>
           <div class="form-field">
-            <label>證交稅</label>
+            <label>證交稅（自動試算，可修改）</label>
             <input type="number" name="tax" step="0.01" min="0" value="0">
           </div>
         </div>
@@ -74,6 +89,33 @@ function renderTransactionsView(container) {
   `;
 
   const form = container.querySelector('#tx-form');
+
+  const priceInput = form.querySelector('[name="price"]');
+  const quantityInput = form.querySelector('[name="quantity"]');
+  const typeInput = form.querySelector('[name="type"]');
+  const feeInput = form.querySelector('[name="fee"]');
+  const taxInput = form.querySelector('[name="tax"]');
+
+  feeInput.addEventListener('input', () => { feeInput.dataset.userEdited = 'true'; });
+  taxInput.addEventListener('input', () => { taxInput.dataset.userEdited = 'true'; });
+
+  function autoFillFeeTax() {
+    const price = parseFloat(priceInput.value);
+    const quantity = parseInt(quantityInput.value, 10);
+    const type = typeInput.value;
+    if (feeInput.dataset.userEdited !== 'true') {
+      feeInput.value = computeFee(price, quantity);
+    }
+    if (taxInput.dataset.userEdited !== 'true') {
+      taxInput.value = computeTax(price, quantity, type);
+    }
+  }
+
+  [priceInput, quantityInput, typeInput].forEach((el) => {
+    el.addEventListener('input', autoFillFeeTax);
+    el.addEventListener('change', autoFillFeeTax);
+  });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form).entries());
@@ -105,6 +147,8 @@ function renderTransactionsView(container) {
     }
     errorBox.innerHTML = '';
     form.reset();
+    delete feeInput.dataset.userEdited;
+    delete taxInput.dataset.userEdited;
     renderList(container);
     await maybePromptAddToWatchlist(input);
   });

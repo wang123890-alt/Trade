@@ -6,10 +6,15 @@
 function renderKLineChart(bars, {
   width = 1040,
   height = 300,
+  volumeHeight = 70,
   maSeries = [], // [{ label, color, values }] — values same length as bars
   markers = [], // [{ index, label, color }]
 } = {}) {
   if (bars.length === 0) return '<div class="empty-state">沒有K線資料</div>';
+
+  const hasVolume = bars.some((b) => b.volume != null);
+  const volumeGap = hasVolume ? 16 : 0;
+  const totalHeight = height + (hasVolume ? volumeHeight + volumeGap : 0);
 
   const padding = { top: 20, right: 10, bottom: 10, left: 10 };
   const plotWidth = width - padding.left - padding.right;
@@ -39,8 +44,9 @@ function renderKLineChart(bars, {
 
   const candles = bars.map((b, i) => {
     const isUp = b.close >= b.open;
-    const color = isUp ? 'var(--green)' : 'var(--red)';
-    const bg = isUp ? 'var(--green-dim)' : 'var(--red-dim)';
+    // Taiwan/Chinese convention: red = price up, green = price down.
+    const color = isUp ? 'var(--red)' : 'var(--green)';
+    const bg = isUp ? 'var(--red-dim)' : 'var(--green-dim)';
     const x = xAt(i);
     const yHigh = yAt(b.high);
     const yLow = yAt(b.low);
@@ -73,12 +79,30 @@ function renderKLineChart(bars, {
     `;
   }).join('');
 
+  let volumeBars = '';
+  if (hasVolume) {
+    const volTop = height + volumeGap;
+    const maxVolume = Math.max(...bars.map((b) => b.volume || 0), 1);
+    function volYAt(v) {
+      return volTop + volumeHeight * (1 - v / maxVolume);
+    }
+    volumeBars = bars.map((b, i) => {
+      const isUp = b.close >= b.open;
+      const color = isUp ? 'var(--red)' : 'var(--green)';
+      const x = xAt(i);
+      const y = volYAt(b.volume || 0);
+      const barHeight = Math.max(1, volTop + volumeHeight - y);
+      return `<rect x="${x - candleWidth / 2}" y="${y}" width="${candleWidth}" height="${barHeight}" fill="${color}" opacity="0.5"></rect>`;
+    }).join('');
+  }
+
   return `
-    <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" style="display:block;">
+    <svg viewBox="0 0 ${width} ${totalHeight}" width="100%" height="${totalHeight}" style="display:block;">
       ${gridLines}
       ${maLines}
       ${candles}
       ${markerEls}
+      ${volumeBars}
     </svg>
   `;
 }

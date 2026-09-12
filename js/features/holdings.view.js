@@ -1,5 +1,6 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
+import { FinMindProvider } from '../data/marketdata.js';
 import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
@@ -73,11 +74,29 @@ function render(container) {
       const cardEl = btn.closest('[data-stock-id]');
       const stockId = cardEl.getAttribute('data-stock-id');
       const input = cardEl.querySelector('.price-input');
-      const price = parseFloat(input.value);
+
+      let price = parseFloat(input.value);
       if (!(price > 0)) {
-        alert('請輸入有效的市價');
-        return;
+        // No manual value typed — try to auto-fetch the current price first.
+        btn.disabled = true;
+        btn.textContent = '取得中…';
+        try {
+          const quote = await FinMindProvider.getQuote(stockId);
+          if (quote) {
+            price = quote.price;
+            input.value = price;
+          }
+        } catch (err) {
+          // Fall through — user can still type a price manually.
+        }
+        btn.textContent = '更新';
+        if (!(price > 0)) {
+          alert('自動取得市價失敗，請手動輸入市價');
+          btn.disabled = false;
+          return;
+        }
       }
+
       btn.disabled = true;
       const result = await ManualPriceRepository.set(stockId, price);
       if (!result.ok) {

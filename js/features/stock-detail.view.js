@@ -83,6 +83,7 @@ function renderCsvFallback(chartArea, stockId, err) {
 
 function renderChartFromBars(chartArea, bars, stockTx) {
   const ma5 = computeMA(bars, 5);
+  const ma10 = computeMA(bars, 10);
   const ma20 = computeMA(bars, 20);
   const ma60 = computeMA(bars, 60);
   const rsi = computeRSI(bars, 14);
@@ -112,12 +113,14 @@ function renderChartFromBars(chartArea, bars, stockTx) {
   chartArea.innerHTML = `
     <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
       <span class="tag tag-accent">MA5</span>
+      <span class="tag" style="color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.25);">MA10</span>
       <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20</span>
       <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60</span>
     </div>
     ${renderKLineChart(bars, {
       maSeries: [
         { label: 'MA5', color: 'var(--accent)', values: ma5 },
+        { label: 'MA10', color: '#fbbf24', values: ma10 },
         { label: 'MA20', color: '#f0abfc', values: ma20 },
         { label: 'MA60', color: 'var(--text-faint)', values: ma60 },
       ],
