@@ -2,7 +2,8 @@ import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { computeRealizedSummary, computeUnrealizedSummary, groupByStock, groupByStrategy } from '../core/statistics.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
-import { formatMoney, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, pnlClass } from '../utils/format.js';
+import { navigate } from '../router.js';
 
 function renderOverviewView(container) {
   const manualPrices = ManualPriceRepository.getAll();
@@ -90,10 +91,29 @@ function renderOverviewView(container) {
       <div style="font-size:15px; font-weight:700; margin-bottom:10px;">常見虧損原因統計</div>
       ${lossPatterns
         .map(
-          (p) => `
-        <div class="tx-row">
-          <div style="font-size:13px;">${p.trigger}</div>
-          <span class="tag tag-yellow">${p.count} 次</span>
+          (p, i) => `
+        <div>
+          <div class="tx-row" data-action="toggle-pattern" data-pattern-index="${i}" style="cursor:pointer;">
+            <div style="font-size:13px;">${p.trigger}</div>
+            <span class="tag tag-yellow">${p.count} 次</span>
+          </div>
+          <div data-pattern-examples="${i}" hidden style="padding:4px 0 8px 0;">
+            ${p.examples
+              .map((m) => {
+                const buyTx = transactionsById[m.buyTransactionId];
+                const stockName = buyTx?.stockName || m.stockId;
+                return `
+                <div class="tx-row" data-action="view-example" data-stock-id="${m.stockId}" style="cursor:pointer; padding-left:10px; border-left:2px solid var(--border);">
+                  <div>
+                    <div style="font-size:12.5px; font-weight:600;">${stockName} <span class="text-faint" style="font-weight:500;">${m.stockId}</span></div>
+                    <div class="text-faint" style="font-size:11px; margin-top:2px;">${formatDate(m.closedAt)} · ${m.buyPrice} → ${m.sellPrice}</div>
+                  </div>
+                  <div class="${pnlClass(m.realizedPnL)}" style="font-size:12.5px; font-weight:600;">${formatMoney(m.realizedPnL)}</div>
+                </div>
+              `;
+              })
+              .join('')}
+          </div>
         </div>
       `
         )
@@ -101,6 +121,21 @@ function renderOverviewView(container) {
     </div>
     ` : ''}
   `;
+
+  container.querySelectorAll('[data-action="toggle-pattern"]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const idx = row.getAttribute('data-pattern-index');
+      const examples = container.querySelector(`[data-pattern-examples="${idx}"]`);
+      examples.hidden = !examples.hidden;
+    });
+  });
+
+  container.querySelectorAll('[data-action="view-example"]').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigate('detail', row.getAttribute('data-stock-id'));
+    });
+  });
 }
 
 export { renderOverviewView };
