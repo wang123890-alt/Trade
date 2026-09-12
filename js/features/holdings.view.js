@@ -1,6 +1,6 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
-import { FinMindProvider } from '../data/marketdata.js';
+import { getLiveQuote } from '../data/marketdata.js';
 import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
@@ -81,7 +81,7 @@ function render(container) {
         btn.disabled = true;
         btn.textContent = '取得中…';
         try {
-          const quote = await FinMindProvider.getQuote(stockId);
+          const quote = await getLiveQuote(stockId);
           if (quote) {
             price = quote.price;
             input.value = price;
