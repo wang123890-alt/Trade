@@ -18,15 +18,17 @@ async function renderStockDetailView(container, stockId) {
 
   const { transactions, matches } = recompute();
   const stockTx = transactions.filter((t) => t.stockId === stockId);
-  const stockName = stockTx.length > 0 ? stockTx[stockTx.length - 1].stockName : stockId;
+  const lastTx = stockTx.length > 0 ? stockTx[stockTx.length - 1] : null;
+  const stockName = lastTx ? lastTx.stockName : stockId;
 
   container.innerHTML = `
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
       <button class="icon-btn" id="back-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
       </button>
       <div style="font-size:19px; font-weight:700;">${stockName} <span class="text-faint" style="font-weight:500; font-size:13px;">${stockId}</span></div>
     </div>
+    ${lastTx ? `<div class="text-faint" style="font-size:12px; margin:0 0 12px 42px;">最後交易日 ${formatDate(lastTx.dateTime)} · 成交價 ${lastTx.price}</div>` : ''}
     <div id="chart-area" class="card"><div class="empty-state">載入K線資料中…</div></div>
     <div id="notes-area"></div>
     <div id="review-area"></div>
