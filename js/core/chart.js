@@ -206,7 +206,7 @@ function renderKLineChart(bars, {
   const axis = axisEls.join('');
 
   return `
-    <svg viewBox="0 0 ${width} ${totalHeight}" width="100%" height="${totalHeight}" style="display:block;">
+    <svg viewBox="0 0 ${width} ${totalHeight}" style="display:block; width:100%; height:auto;">
       ${gridLines}
       ${monthGuides}
       ${maLines}
