@@ -22,7 +22,7 @@ function renderOverviewView(container) {
   const totalPnL = realized.totalRealizedPnL + unrealized.totalUnrealizedPnL;
   const byStock = groupByStock(matches);
 
-  // A stock currently held counts as 持有中 regardless of past realized
+  // A stock currently held counts as 持有 regardless of past realized
   // P&L; only fully-closed stocks (no open position) split into 獲利/虧損.
   const holdingStockIds = new Set(positions.map((p) => p.stockId));
   const profitStocks = byStock.filter((g) => !holdingStockIds.has(g.stockId) && g.totalRealizedPnL > 0);
@@ -72,7 +72,7 @@ function renderOverviewView(container) {
     <div class="card">
       <div style="font-size:15px; font-weight:700; margin-bottom:10px;">個股分類</div>
       ${[
-        renderStockCategory('獲利中', 'tag-red', 'profit', profitStocks.map((g) => {
+        renderStockCategory('獲利', 'tag-red', 'profit', profitStocks.map((g) => {
           const latestTx = [...transactions].reverse().find((t) => t.stockId === g.stockId);
           return {
             stockId: g.stockId,
@@ -82,7 +82,7 @@ function renderOverviewView(container) {
             amountClass: pnlClass(g.totalRealizedPnL),
           };
         })),
-        renderStockCategory('虧損中', 'tag-green', 'loss', lossStocks.map((g) => {
+        renderStockCategory('虧損', 'tag-green', 'loss', lossStocks.map((g) => {
           const latestTx = [...transactions].reverse().find((t) => t.stockId === g.stockId);
           return {
             stockId: g.stockId,
@@ -92,7 +92,7 @@ function renderOverviewView(container) {
             amountClass: pnlClass(g.totalRealizedPnL),
           };
         })),
-        renderStockCategory('持有中', 'tag-accent', 'holding', positions.map((p) => ({
+        renderStockCategory('持有', 'tag-accent', 'holding', positions.map((p) => ({
           stockId: p.stockId,
           stockName: p.stockName,
           detail: `持有 ${p.totalQuantity} 股 · 成本均價 ${p.averageCost.toFixed(2)}`,
