@@ -21,9 +21,27 @@ function render(container) {
   }
 
   container.innerHTML = `
-    <div style="font-size:20px; font-weight:700; margin-bottom:16px;">我的持股</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <div style="font-size:20px; font-weight:700;">我的持股</div>
+      <button class="btn" id="refresh-all-prices">全部更新</button>
+    </div>
     <div id="positions-list"></div>
   `;
+
+  container.querySelector('#refresh-all-prices').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = '更新中…';
+    for (const p of positions) {
+      try {
+        const quote = await getLiveQuote(p.stockId);
+        if (quote) await ManualPriceRepository.set(p.stockId, quote.price);
+      } catch (err) {
+        // Skip this stock and keep going — one bad quote shouldn't block the rest.
+      }
+    }
+    render(container);
+  });
 
   const list = container.querySelector('#positions-list');
   list.innerHTML = positions
