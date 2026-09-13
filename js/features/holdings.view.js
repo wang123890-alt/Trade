@@ -48,33 +48,27 @@ function render(container) {
     .map((p) => {
       const hasPrice = p.marketPrice != null;
       return `
-      <div class="card" data-stock-id="${p.stockId}">
-        <div style="display:flex; align-items:flex-start; justify-content:space-between;">
-          <div>
-            <button class="stock-link" data-action="view-detail" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit;">
-              <div style="font-size:15px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border);">${p.stockName}
-                <span class="text-faint" style="font-weight:500; font-size:12.5px;">${p.stockId}</span>
-              </div>
-            </button>
-            <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
-              持有 ${p.totalQuantity} 股 · 成本均價 ${p.averageCost.toFixed(2)}
-            </div>
+      <div class="card" data-stock-id="${p.stockId}" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px;">
+        <button class="stock-link" data-action="view-detail" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; flex:1 1 160px; min-width:0;">
+          <div style="font-size:14px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.stockName}
+            <span class="text-faint" style="font-weight:500; font-size:12px;">${p.stockId}</span>
           </div>
-          <div style="text-align:right;">
-            ${hasPrice
-              ? `<div style="font-size:17px; font-weight:700;">${p.marketPrice}</div>
-                 <div class="${pnlClass(p.unrealizedPnL)}" style="font-size:12.5px; font-weight:600;">
-                   ${formatMoney(p.unrealizedPnL)} (${formatPercent(p.unrealizedPnLPercent)})
-                 </div>`
-              : `<div class="text-faint" style="font-size:12px;">未輸入現價</div>`}
+          <div class="text-faint" style="font-size:11px; margin-top:2px;">
+            持有 ${p.totalQuantity} 股 · 成本 ${p.averageCost.toFixed(2)}
           </div>
+        </button>
+        <div style="text-align:right; flex:0 0 auto;">
+          ${hasPrice
+            ? `<div style="font-size:14px; font-weight:700;">${p.marketPrice}</div>
+               <div class="${pnlClass(p.unrealizedPnL)}" style="font-size:11.5px; font-weight:600;">
+                 ${formatMoney(p.unrealizedPnL)} (${formatPercent(p.unrealizedPnLPercent)})
+               </div>`
+            : `<div class="text-faint" style="font-size:12px;">未輸入現價</div>`}
         </div>
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center;">
-          <input type="number" step="0.01" min="0" placeholder="輸入目前市價"
-                 class="price-input" style="flex:1; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:9px 10px; color:var(--text); font-size:14px; min-height:40px;"
-                 value="${hasPrice ? p.marketPrice : ''}">
-          <button class="btn" data-action="save-price">更新</button>
-        </div>
+        <input type="number" step="0.01" min="0" placeholder="市價"
+               class="price-input" style="width:90px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:7px 8px; color:var(--text); font-size:13px; min-height:36px;"
+               value="${hasPrice ? p.marketPrice : ''}">
+        <button class="btn" data-action="save-price" style="flex:0 0 auto;">更新</button>
       </div>
     `;
     })

@@ -22,6 +22,12 @@ function renderOverviewView(container) {
   const totalPnL = realized.totalRealizedPnL + unrealized.totalUnrealizedPnL;
   const byStock = groupByStock(matches);
 
+  // A stock currently held counts as 持有中 regardless of past realized
+  // P&L; only fully-closed stocks (no open position) split into 獲利/虧損.
+  const holdingStockIds = new Set(positions.map((p) => p.stockId));
+  const profitStocks = byStock.filter((g) => !holdingStockIds.has(g.stockId) && g.totalRealizedPnL > 0);
+  const lossStocks = byStock.filter((g) => !holdingStockIds.has(g.stockId) && g.totalRealizedPnL < 0);
+
   const transactionsById = Object.fromEntries(transactions.map((t) => [t.id, t]));
   const strategySummariesByName = Object.fromEntries(
     groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s])
@@ -64,28 +70,38 @@ function renderOverviewView(container) {
     </div>
 
     <div class="card">
-      <div style="font-size:15px; font-weight:700; margin-bottom:10px;">依標的分組績效</div>
-      ${byStock.length === 0
-        ? '<div class="empty-state">尚無已平倉交易</div>'
-        : byStock
-            .map((g) => {
-              const latestTx = [...transactions].reverse().find((t) => t.stockId === g.stockId);
-              const stockName = latestTx?.stockName || g.stockId;
-              return `
-        <div class="tx-row" data-action="view-stock" data-stock-id="${g.stockId}" style="cursor:pointer;">
-          <div>
-            <div style="font-size:13.5px; font-weight:600;">${stockName} <span class="text-faint" style="font-weight:500;">${g.stockId}</span></div>
-            <div class="text-faint" style="font-size:11px; margin-top:2px;">
-              ${g.closedCount} 筆 · 勝率 ${g.winRate != null ? g.winRate.toFixed(0) + '%' : '—'}
-            </div>
-          </div>
-          <div class="${pnlClass(g.totalRealizedPnL)}" style="font-size:13.5px; font-weight:600;">
-            ${formatMoney(g.totalRealizedPnL)}
-          </div>
-        </div>
-      `;
-            })
-            .join('')}
+      <div style="font-size:15px; font-weight:700; margin-bottom:10px;">個股分類</div>
+      ${[
+        renderStockCategory('獲利中', 'tag-red', 'profit', profitStocks.map((g) => {
+          const latestTx = [...transactions].reverse().find((t) => t.stockId === g.stockId);
+          return {
+            stockId: g.stockId,
+            stockName: latestTx?.stockName || g.stockId,
+            detail: `${g.closedCount} 筆 · 勝率 ${g.winRate != null ? g.winRate.toFixed(0) + '%' : '—'}`,
+            amount: formatMoney(g.totalRealizedPnL),
+            amountClass: pnlClass(g.totalRealizedPnL),
+          };
+        })),
+        renderStockCategory('虧損中', 'tag-green', 'loss', lossStocks.map((g) => {
+          const latestTx = [...transactions].reverse().find((t) => t.stockId === g.stockId);
+          return {
+            stockId: g.stockId,
+            stockName: latestTx?.stockName || g.stockId,
+            detail: `${g.closedCount} 筆 · 勝率 ${g.winRate != null ? g.winRate.toFixed(0) + '%' : '—'}`,
+            amount: formatMoney(g.totalRealizedPnL),
+            amountClass: pnlClass(g.totalRealizedPnL),
+          };
+        })),
+        renderStockCategory('持有中', 'tag-accent', 'holding', positions.map((p) => ({
+          stockId: p.stockId,
+          stockName: p.stockName,
+          detail: `持有 ${p.totalQuantity} 股 · 成本均價 ${p.averageCost.toFixed(2)}`,
+          amount: p.unrealizedPnL != null ? formatMoney(p.unrealizedPnL) : '未輸入現價',
+          amountClass: p.unrealizedPnL != null ? pnlClass(p.unrealizedPnL) : 'text-faint',
+        }))),
+      ]
+        .filter(Boolean)
+        .join('') || '<div class="empty-state">尚無資料</div>'}
     </div>
 
     ${lossPatterns.length > 0 ? `
@@ -144,6 +160,42 @@ function renderOverviewView(container) {
       navigate('detail', row.getAttribute('data-stock-id'));
     });
   });
+
+  container.querySelectorAll('[data-action="toggle-category"]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const kind = row.getAttribute('data-category');
+      const list = container.querySelector(`[data-category-list="${kind}"]`);
+      list.hidden = !list.hidden;
+    });
+  });
+}
+
+/** items: { stockId, stockName, detail, amount, amountClass }[] */
+function renderStockCategory(title, tagColor, kind, items) {
+  if (items.length === 0) return '';
+  return `
+    <div>
+      <div class="tx-row" data-action="toggle-category" data-category="${kind}" style="cursor:pointer;">
+        <div style="font-size:13.5px; font-weight:600;">${title}</div>
+        <span class="tag ${tagColor}">${items.length} 檔</span>
+      </div>
+      <div data-category-list="${kind}" hidden style="padding:4px 0 8px 0;">
+        ${items
+          .map(
+            (it) => `
+          <div class="tx-row" data-action="view-stock" data-stock-id="${it.stockId}" style="cursor:pointer; padding-left:10px; border-left:2px solid var(--border);">
+            <div>
+              <div style="font-size:12.5px; font-weight:600;">${it.stockName} <span class="text-faint" style="font-weight:500;">${it.stockId}</span></div>
+              <div class="text-faint" style="font-size:11px; margin-top:2px;">${it.detail}</div>
+            </div>
+            <div class="${it.amountClass}" style="font-size:12.5px; font-weight:600;">${it.amount}</div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    </div>
+  `;
 }
 
 export { renderOverviewView };
