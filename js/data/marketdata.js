@@ -32,7 +32,12 @@ class MarketDataError extends Error {
 // PARALLEL instead of one after another, so a multi-layer fallback chain
 // costs roughly its slowest single step, not the sum of every step.
 const DIRECT_TIMEOUT_MS = 3000;
-const PROXY_TIMEOUT_MS = 6000;
+// Relays are raced in parallel, so this only bounds how long a straggler is
+// allowed to keep trying after the fast one has already answered — it costs
+// nothing when any relay is healthy. It was 6s, which silently killed
+// allorigins responses measured at 19s, leaving the whole chain to fall
+// through to FinMind's stale daily close.
+const PROXY_TIMEOUT_MS = 12000;
 // FinMind's K-line history fetch isn't part of that interactive "更新"
 // button flow — it's a chart load with its own "載入中" state — so it gets
 // a more generous timeout than a live-quote attempt does.
@@ -54,18 +59,41 @@ async function fetchWithTimeout(url, options = {}, timeoutMs) {
   }
 }
 
-// Public CORS-passthrough proxies — the proxy only relays bytes, it never
-// sees anything besides the target URL being requested (a stock code, no
-// user data). Used to reach endpoints that don't send CORS headers to
-// arbitrary origins, so a pure front-end page (no backend of its own)
-// couldn't otherwise read their response at all. Public proxies are
-// themselves flaky (observed both of these return a transient 5xx within
-// the same minute during testing), so both are raced in parallel — the
-// first one to answer wins — rather than trusting a single one to be up.
+// Public CORS-passthrough relays — the relay only passes bytes through, it
+// never sees anything besides the target URL being requested (a stock code,
+// no user data). Needed because the quote sources below don't send CORS
+// headers to arbitrary origins, so a pure front-end page (no backend of its
+// own) can't read their responses directly.
+//
+// Order and membership here are measured, not guessed (2026-09-14, same
+// minute, same target):
+//   r.jina.ai       5/5 success, 0.53-0.76s, sends Access-Control-Allow-Origin
+//   allorigins.win  2/5 success, and the successes took 3.6s and 19.3s
+//   codetabs.com    0/5 — every attempt 522, the service itself is down
+// codetabs was dropped for being entirely dead; allorigins stays as a
+// second opinion only because it does sometimes work. They're raced in
+// parallel (first usable answer wins), so a slow straggler costs nothing.
 const CORS_PROXIES = [
+  // Returns text/plain with a short header block ("Title: ... URL Source:
+  // ... Markdown Content:") before the payload, so its JSON has to be
+  // extracted from the text rather than read straight off the response.
+  (target) => `https://r.jina.ai/${target}`,
   (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-  (target) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
 ];
+
+/** Parse a response body that should contain JSON but might be wrapped in
+ * surrounding text (r.jina.ai prefixes a plain-text header block). Falls
+ * back to slicing from the first brace to the last. */
+function parseJsonLoose(text) {
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end <= start) throw err;
+    return JSON.parse(text.slice(start, end + 1));
+  }
+}
 
 /** Fetch JSON from a URL that may not send CORS headers: try the request
  * directly first (cheap, short leash, and some public endpoints do allow
@@ -75,7 +103,7 @@ const CORS_PROXIES = [
 async function fetchJsonWithProxyFallback(targetUrl) {
   try {
     const response = await fetchWithTimeout(targetUrl, {}, DIRECT_TIMEOUT_MS);
-    if (response.ok) return await response.json();
+    if (response.ok) return parseJsonLoose(await response.text());
   } catch (err) {
     // Most likely a CORS rejection (the browser blocks the response before
     // it ever reaches this code) — fall through to a proxied retry instead
@@ -84,7 +112,7 @@ async function fetchJsonWithProxyFallback(targetUrl) {
   const proxyAttempts = CORS_PROXIES.map(async (buildProxyUrl) => {
     const response = await fetchWithTimeout(buildProxyUrl(targetUrl), {}, PROXY_TIMEOUT_MS);
     if (!response.ok) throw new Error(`proxy responded HTTP ${response.status}`);
-    return response.json();
+    return parseJsonLoose(await response.text());
   });
   try {
     return await Promise.any(proxyAttempts);
@@ -118,7 +146,7 @@ const FinMindProvider = {
 
     let payload;
     try {
-      payload = await response.json();
+      payload = parseJsonLoose(await response.text());
     } catch (err) {
       throw new MarketDataError('FinMind API 回應格式無法解析', err);
     }
@@ -149,7 +177,7 @@ const FinMindProvider = {
     });
     if (bars.length === 0) return null;
     const latest = bars[bars.length - 1];
-    return { price: latest.close, date: latest.date };
+    return { price: latest.close, date: latest.date, isIntraday: false, source: `${latest.date.slice(5).replace('-', '/')}收盤` };
   },
 };
 
@@ -163,9 +191,9 @@ function parseTwseDate(d) {
 function parseTwseRow(row) {
   const date = parseTwseDate(row.d);
   const traded = parseFloat(row.z); // 最新成交價；開盤前/無成交時是 '-'
-  if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true };
+  if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true, source: 'TWSE' };
   const prevClose = parseFloat(row.y); // 昨收，作為尚無成交時的退而求其次
-  if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false };
+  if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false, source: 'TWSE昨收' };
   return null;
 }
 
@@ -225,7 +253,7 @@ function parseYahooMeta(payload) {
   const date = meta.regularMarketTime
     ? new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10)
     : new Date().toISOString().slice(0, 10);
-  return { price, date, isIntraday: true };
+  return { price, date, isIntraday: true, source: '雅虎' };
 }
 
 /** Best-effort intraday quote from Yahoo Finance, used when TWSE's own feed
@@ -252,51 +280,56 @@ const YahooFinanceProvider = {
   },
 };
 
-/** The quote callers should actually use: TWSE's live feed first, Yahoo
- * Finance (via CORS proxy) if that has nothing, and FinMind's daily close
- * only as the last resort — FinMind is only ever accurate after the market
- * closes, so it's a safety net rather than a real intraday source. */
+// TwseRealtimeProvider is deliberately NOT in the chains below, even though
+// TWSE MIS is the canonical intraday source for Taiwan stocks. Measured
+// 2026-09-14: a browser can't read it directly (no CORS header), and every
+// public relay that could have fetched it server-side fails to reach it at
+// all (allorigins 408, codetabs 522, r.jina.ai 401 "bad IP reputation") —
+// TWSE evidently refuses those hosts. Leaving it first in the chain cost
+// ~9 seconds of dead waiting on every single update and never once
+// returned a price. The provider is kept (exported, tested) because it
+// works fine from a server — see wang123890-alt/Choose, which calls the
+// same endpoint from Python — so it's ready if this app ever gains a
+// backend; it just cannot work from a static page.
+
+/** The quote callers should actually use: Yahoo Finance (via relay) for a
+ * real intraday price, and FinMind's daily close only as the last resort —
+ * FinMind is only ever accurate after the market closes, so it's a safety
+ * net rather than a real intraday source. */
 async function getLiveQuote(stockId) {
-  const twse = await TwseRealtimeProvider.getQuote(stockId);
-  if (twse) return twse;
   const yahoo = await YahooFinanceProvider.getQuote(stockId);
   if (yahoo) return yahoo;
-  // Unlike TwseRealtimeProvider/YahooFinanceProvider (which swallow every
-  // failure and just return null), FinMindProvider.getQuote can throw a
-  // MarketDataError — it's meant to surface real problems (bad response
-  // shape, HTTP error) rather than hide them. Let that propagate here: the
-  // caller (holdings.view.js) shows err.message directly, which is the only
-  // way to tell "TWSE and Yahoo both had nothing, and here's exactly why
-  // FinMind also failed" from "everything returned null silently" — needed
-  // once TWSE/Yahoo's own reasons are already invisible by design.
+  // Unlike YahooFinanceProvider (which swallows every failure and just
+  // returns null), FinMindProvider.getQuote can throw a MarketDataError —
+  // it's meant to surface real problems (bad response shape, HTTP error)
+  // rather than hide them. Let that propagate: the caller shows err.message
+  // directly, which is the only way to tell "Yahoo had nothing and here's
+  // exactly why FinMind also failed" from "everything returned null
+  // silently", since Yahoo's own reasons are invisible by design.
   const finmind = await FinMindProvider.getQuote(stockId);
   if (finmind) return finmind;
-  throw new MarketDataError('TWSE、雅虎財經、FinMind 都查無這檔的價格資料');
+  throw new MarketDataError('雅虎財經與 FinMind 都查無這檔的價格資料');
 }
 
 /** Like getLiveQuote, but for many stocks at once — used by a bulk "update
- * all holdings" action. Fetches TWSE in one batched call (see
- * TwseRealtimeProvider.getQuotes) instead of looping getLiveQuote() per
- * stock, which would fire one separate TWSE request per stock and trip its
- * anti-scraping throttle during market hours. Anything TWSE didn't match
- * still falls back to Yahoo, then FinMind, per stock.
- * Returns { [stockId]: {price,date,isIntraday} }, omitting stocks nothing
- * could quote. Never throws. */
+ * all holdings" action. Yahoo's chart API only takes one symbol per
+ * request, so this is one chain per stock, but the stocks run in PARALLEL:
+ * a portfolio of ten holdings costs about as long as one, instead of ten
+ * times as long.
+ * Returns { [stockId]: {price,date,isIntraday,source} }, omitting stocks
+ * nothing could quote. Never throws. */
 async function getLiveQuotes(stockIds) {
-  const result = await TwseRealtimeProvider.getQuotes(stockIds);
-  const missing = stockIds.filter((id) => !result[id]);
-  for (const id of missing) {
+  const ids = [...new Set(stockIds)];
+  const settled = await Promise.all(ids.map(async (id) => {
     try {
-      const yahoo = await YahooFinanceProvider.getQuote(id);
-      if (yahoo) { result[id] = yahoo; continue; }
-      const finmind = await FinMindProvider.getQuote(id);
-      if (finmind) result[id] = finmind;
+      return [id, await getLiveQuote(id)];
     } catch (err) {
-      // This stock's fallback chain failed entirely — leave it out of the
-      // result; the caller (bulk update) just skips it and moves on.
+      // This stock's chain failed entirely — leave it out of the result;
+      // the caller (bulk update) reports which ones came back empty.
+      return [id, null];
     }
-  }
-  return result;
+  }));
+  return Object.fromEntries(settled.filter(([, quote]) => quote));
 }
 
 /** Fallback when the live provider is unreachable: parse a user-pasted CSV.
