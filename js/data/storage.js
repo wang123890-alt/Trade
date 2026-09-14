@@ -181,6 +181,14 @@ const ManualPriceRepository = {
     state.manualPrices[stockId] = price;
     return persist();
   },
+  /** Update many prices in one persist — see TransactionRepository.saveMany.
+   * Used by "update all holdings" so N stocks cost one GitHub commit, not N
+   * (which also cuts down on 409 retries between rapid-fire sequential
+   * writes). */
+  async setMany(pricesByStockId) {
+    Object.assign(state.manualPrices, pricesByStockId);
+    return persist();
+  },
 };
 
 // Per-stock 看法紀錄 timeline, shared by the Holdings and Watchlist detail

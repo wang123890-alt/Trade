@@ -114,6 +114,45 @@ const TwseRealtimeProvider = {
     }
     return null;
   },
+
+  /** Batch quote for many stocks in ONE request per market prefix, instead of
+   * one request per stock. TWSE's `ex_ch` param accepts a "|"-joined list
+   * (e.g. `tse_2330.tw|tse_2317.tw`) — firing a separate request per stock in
+   * a tight loop (as looping getQuote() would for a "update all holdings"
+   * button) trips their anti-scraping throttle during market hours once
+   * there are more than a couple of stocks, even though a single stock's
+   * update works fine. Returns { [stockId]: {price,date,isIntraday} },
+   * omitting any stockId that didn't match on either market (caller falls
+   * back to Yahoo/FinMind for those). Never throws. */
+  async getQuotes(stockIds) {
+    const result = {};
+    let remaining = [...new Set(stockIds)];
+    for (const market of ['tse', 'otc']) {
+      if (remaining.length === 0) break;
+      try {
+        const query = remaining.map((id) => `${market}_${id}.tw`).join('|');
+        const url = `${TWSE_REALTIME_BASE}?ex_ch=${query}&json=1&delay=0`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const payload = await response.json();
+          for (const row of payload?.msgArray || []) {
+            const id = row.c; // stock code
+            if (!id || result[id]) continue;
+            const date = parseTwseDate(row.d);
+            const traded = parseFloat(row.z);
+            if (Number.isFinite(traded)) { result[id] = { price: traded, date, isIntraday: true }; continue; }
+            const prevClose = parseFloat(row.y);
+            if (Number.isFinite(prevClose)) result[id] = { price: prevClose, date, isIntraday: false };
+          }
+        }
+      } catch (err) {
+        // Network error or blocked — leave these for the OTC pass (or the
+        // caller's per-stock Yahoo/FinMind fallback if that fails too).
+      }
+      remaining = remaining.filter((id) => !result[id]);
+    }
+    return result;
+  },
 };
 
 // Yahoo Finance's chart API (query1.finance.yahoo.com) has real intraday
@@ -175,6 +214,31 @@ async function getLiveQuote(stockId) {
   return FinMindProvider.getQuote(stockId);
 }
 
+/** Like getLiveQuote, but for many stocks at once — used by a bulk "update
+ * all holdings" action. Fetches TWSE in one batched call (see
+ * TwseRealtimeProvider.getQuotes) instead of looping getLiveQuote() per
+ * stock, which would fire one separate TWSE request per stock and trip its
+ * anti-scraping throttle during market hours. Anything TWSE didn't match
+ * still falls back to Yahoo, then FinMind, per stock.
+ * Returns { [stockId]: {price,date,isIntraday} }, omitting stocks nothing
+ * could quote. Never throws. */
+async function getLiveQuotes(stockIds) {
+  const result = await TwseRealtimeProvider.getQuotes(stockIds);
+  const missing = stockIds.filter((id) => !result[id]);
+  for (const id of missing) {
+    try {
+      const yahoo = await YahooFinanceProvider.getQuote(id);
+      if (yahoo) { result[id] = yahoo; continue; }
+      const finmind = await FinMindProvider.getQuote(id);
+      if (finmind) result[id] = finmind;
+    } catch (err) {
+      // This stock's fallback chain failed entirely — leave it out of the
+      // result; the caller (bulk update) just skips it and moves on.
+    }
+  }
+  return result;
+}
+
 /** Fallback when the live provider is unreachable: parse a user-pasted CSV.
  * Expected columns (header row required): date,open,high,low,close,volume */
 const CsvProvider = {
@@ -212,4 +276,4 @@ function defaultStartDate() {
   return d.toISOString().slice(0, 10);
 }
 
-export { FinMindProvider, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote, CsvProvider, MarketDataError };
+export { FinMindProvider, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote, getLiveQuotes, CsvProvider, MarketDataError };

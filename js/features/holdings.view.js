@@ -1,6 +1,6 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
-import { getLiveQuote } from '../data/marketdata.js';
+import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
 import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
@@ -32,13 +32,18 @@ function render(container) {
     const btn = e.currentTarget;
     btn.disabled = true;
     btn.textContent = '更新中…';
-    for (const p of positions) {
-      try {
-        const quote = await getLiveQuote(p.stockId);
-        if (quote) await ManualPriceRepository.set(p.stockId, quote.price);
-      } catch (err) {
-        // Skip this stock and keep going — one bad quote shouldn't block the rest.
-      }
+    try {
+      // Batched: one TWSE request covering all stockIds instead of one
+      // request per stock — looping getLiveQuote() per stock used to trip
+      // TWSE's anti-scraping throttle during market hours once there were
+      // more than a couple of holdings, even though updating a single stock
+      // worked fine.
+      const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
+      const prices = {};
+      for (const [stockId, quote] of Object.entries(quotes)) prices[stockId] = quote.price;
+      if (Object.keys(prices).length > 0) await ManualPriceRepository.setMany(prices);
+    } catch (err) {
+      alert(err?.message || '全部更新失敗，請稍後再試或逐檔手動更新');
     }
     render(container);
   });
