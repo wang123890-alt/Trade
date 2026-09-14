@@ -4,6 +4,15 @@ import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
 import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
+// Where each displayed price came from ("雅虎" for a live intraday quote,
+// "09/12收盤" for FinMind's stale daily close), keyed by stockId. Only the
+// price itself is persisted, so this is in-memory and only labels prices
+// fetched in this session — enough to answer the question that kept coming
+// up: "I pressed 更新 and the number didn't move, is it broken?" A number
+// tagged 收盤 hasn't moved because the market's last settled price hasn't
+// moved, which is very different from a failed update.
+const priceSources = {};
+
 function renderHoldingsView(container) {
   render(container);
 }
@@ -33,14 +42,14 @@ function render(container) {
     btn.disabled = true;
     btn.textContent = '更新中…';
     try {
-      // Batched: one TWSE request covering all stockIds instead of one
-      // request per stock — looping getLiveQuote() per stock used to trip
-      // TWSE's anti-scraping throttle during market hours once there were
-      // more than a couple of holdings, even though updating a single stock
-      // worked fine.
+      // All holdings are fetched in parallel (see getLiveQuotes), so a
+      // portfolio costs about as long as a single stock.
       const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
       const prices = {};
-      for (const [stockId, quote] of Object.entries(quotes)) prices[stockId] = quote.price;
+      for (const [stockId, quote] of Object.entries(quotes)) {
+        prices[stockId] = quote.price;
+        priceSources[stockId] = quote.source;
+      }
       if (Object.keys(prices).length > 0) {
         await ManualPriceRepository.setMany(prices);
         if (Object.keys(prices).length < positions.length) {
@@ -49,10 +58,10 @@ function render(container) {
         }
       } else {
         // getLiveQuotes() never throws — it returns {} when every source
-        // (TWSE, Yahoo, and FinMind) came back empty for every stock. That
-        // used to fall through silently: no error, so the catch below never
-        // ran, and no update happened with zero on-screen indication.
-        alert('全部更新失敗：TWSE、雅虎財經、FinMind 都查無資料，請稍後再試');
+        // came back empty for every stock. That used to fall through
+        // silently: no error, so the catch below never ran, and no update
+        // happened with zero on-screen indication.
+        alert('全部更新失敗：雅虎財經與 FinMind 都查無資料，請稍後再試');
       }
     } catch (err) {
       alert(err?.message || '全部更新失敗，請稍後再試');
@@ -79,7 +88,9 @@ function render(container) {
         </div>
         <div style="margin-top:8px;">
           ${hasPrice
-            ? `<div style="font-size:14px; font-weight:700;">${p.marketPrice}</div>
+            ? `<div style="font-size:14px; font-weight:700;">${p.marketPrice}
+                 ${priceSources[p.stockId] ? `<span class="text-faint" style="font-size:11px; font-weight:500;">${priceSources[p.stockId]}</span>` : ''}
+               </div>
                <div class="${pnlClass(p.unrealizedPnL)}" style="font-size:11.5px; font-weight:600;">
                  ${formatMoney(p.unrealizedPnL)} (${formatPercent(p.unrealizedPnLPercent)})
                </div>`
@@ -108,7 +119,10 @@ function render(container) {
       let fetchError = null;
       try {
         const quote = await getLiveQuote(stockId);
-        if (quote) price = quote.price;
+        if (quote) {
+          price = quote.price;
+          priceSources[stockId] = quote.source;
+        }
       } catch (err) {
         fetchError = err;
       }

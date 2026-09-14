@@ -54,11 +54,19 @@
 ## 資料來源（`js/data/marketdata.js`）
 
 - **K線歷史資料**：FinMind（`api.finmindtrade.com`），免費版只有日K，且有 CORS 支援，可直接前端 fetch。
-- **持股頁盤中即時報價**（`getLiveQuote`/`getLiveQuotes`）三層備援，理由是任何單一公開/非官方端點都可能不穩：
-  1. `TwseRealtimeProvider` — TWSE MIS（`mis.twse.com.tw`）。**這個端點不保證有 CORS 標頭**（網路上其他人爬蟲筆記明確提到「CORS會導致失敗」），直接 fetch 有時通有時不通，所以跟 Yahoo 共用 `fetchJsonWithProxyFallback()`：先直接打一次（3秒逾時），失敗就退到 `CORS_PROXIES`（`api.allorigins.win`／`api.codetabs.com`）**平行**重打、取最快回應的那個（`Promise.any`），不是判定「沒有這檔」就放棄。
-     **一支股票的上市/上櫃別不用猜兩次、也不用打兩次**：`ex_ch` 參數支援把多個 channel 用 `|` 合併進同一個請求（例：`tse_2330.tw|otc_2330.tw`），這個專案自己的 `wang123890-alt/Choose`（後端 Python 版）本來就是這樣用的——所以無論查一檔還是查一整批持股，**永遠只送出一個 TWSE 請求**：`getQuote()` 把該股兩種市場前綴一起塞進同一個 `ex_ch`；`getQuotes()` 把所有持股的兩種前綴全部攤平合併成一個 `ex_ch`。這樣從根本上不會有「逐檔各打一次觸發防爬蟲節流」的問題，也不需要任何請求間隔的延遲設計。
-  2. `YahooFinanceProvider` — 雅虎財經 chart API（`query1.finance.yahoo.com`，`.TW`/`.TWO`後綴）。這個端點完全沒有 CORS 標頭，一定要走代理；跟 TWSE 一樣用 `fetchJsonWithProxyFallback()`。因為 Yahoo 一次只能查一支股票（不像TWSE的`ex_ch`能合併），`.TW`／`.TWO`兩種猜測改成**平行**發送取最快的，不是猜錯再猜一次。
-  3. `FinMindProvider.getQuote` — 只在前兩者都失敗時才用，因為它本質是「最新一根日K收盤價」，只有收盤後才準確，盤中沒有意義。
+- **持股頁盤中即時報價**（`getLiveQuote`/`getLiveQuotes`）實際只有兩層，順序是 **雅虎 → FinMind**：
+  1. `YahooFinanceProvider` — 雅虎財經 chart API（`query1.finance.yahoo.com`，`.TW`/`.TWO`後綴）。沒有 CORS 標頭，一定要走中繼；`.TW`／`.TWO` 兩種猜測**平行**發送取最快的。**這是唯一真正拿得到盤中價的來源。**
+  2. `FinMindProvider.getQuote` — 只是安全網，本質是「最新一根日K收盤價」，盤中不會變。
+- **`TwseRealtimeProvider` 已經從上面的鏈路中移除（程式碼保留、測試保留）**。2026-09-14 實測：瀏覽器直接打讀不到（沒有 CORS 標頭），而且**所有公開中繼都連不到 `mis.twse.com.tw`**（allorigins 408、codetabs 522、r.jina.ai 401「bad IP reputation」）——TWSE 顯然擋這些機房IP。留在鏈路第一層只會讓每次更新白等約9秒且永遠拿不到價。保留程式碼是因為**從伺服器端打完全沒問題**（見 `wang123890-alt/Choose` 的 Python 版），將來這個 App 若有後端就能直接用；純靜態前端則不可能。
+- **中繼清單 `CORS_PROXIES` 的順序是實測出來的，不要憑感覺改**（2026-09-14 同一分鐘、同一目標）：
+  | 中繼 | 成功率 | 耗時 |
+  |---|---|---|
+  | `r.jina.ai` | **5/5** | **0.53–0.76秒**，且會回應 `Access-Control-Allow-Origin` 給呼叫端網域 |
+  | `api.allorigins.win` | 2/5 | 成功時 3.6秒 與 **19.3秒** |
+  | `api.codetabs.com` | 0/5 | 全部 522，服務本身掛了（已移除）|
+  `r.jina.ai` 回傳的是 `text/plain`，JSON 前面有一段 `Title: / URL Source: / Markdown Content:` 標頭，所以整個模組改用 `parseJsonLoose(await response.text())`（找第一個 `{` 到最後一個 `}`）而不是 `response.json()`。
+- **`PROXY_TIMEOUT_MS` 是 12 秒不是 6 秒**：中繼是平行競速，逾時只限制「落後者還能再試多久」，快的那個早就回來了，所以拉長幾乎零成本；但設成 6 秒會把 allorigins 那種 19 秒才回來的成功回應直接砍掉，整條鏈路就掉到 FinMind 的舊收盤價。
+- **每筆報價都帶 `source` 標籤**（`雅虎` / `09/12收盤` / `TWSE`），持股頁會顯示在價格旁邊。這是為了回答那個反覆出現的問題：「我按了更新，數字沒動，是不是壞了？」——標著「收盤」的數字本來就不會動（那是已結算的收盤價），跟更新失敗是兩回事，一眼就能分辨。
 - **失敗要讓使用者看得到原因，不要吞掉**：`TwseRealtimeProvider`/`YahooFinanceProvider` 設計上「絕不拋錯」，失敗就回傳 `null`；但最後一層 `FinMindProvider.getQuote` 如果拋錯，`getLiveQuote()` 現在會讓它繼續往外傳（不吞掉），單檔「更新」按鈕的 `alert` 會直接顯示 `err.message`，而不是統一顯示「自動取得市價失敗」這種看不出原因的訊息。三層都真的查無資料時，`getLiveQuote()` 自己會丟出一個說明「TWSE、雅虎財經、FinMind 都查無這檔的價格資料」的錯誤，而不是回傳 `null` 讓呼叫端猜。「全部更新」（`getLiveQuotes`）同理：全部落空時會回傳 `{}`（設計上不拋錯），呼叫端要顯式檢查空結果並跳出提示，不能只靠 `try/catch`（`{}` 不是例外，`catch` 接不到）。
 - 雅虎股市（`tw.stock.yahoo.com`）網頁本身也沒有 CORS 標頭，一樣走不通，已測試過不用重測。
 - **逾時設計**：這個模組所有 `fetch()` 都經過 `fetchWithTimeout()`（`AbortController`），且**每一層彼此獨立的嘗試一律平行發送，不要序列（一個接一個）發送**——序列疊加的逾時是這個功能之前反覆卡住/很慢的根因之一（見下方教訓）。直接嘗試 `DIRECT_TIMEOUT_MS=3000`，代理嘗試 `PROXY_TIMEOUT_MS=6000`（代理本身較慢，給多一點時間），K線歷史資料（非互動式，有自己的「載入中」畫面）用 `KLINE_TIMEOUT_MS=10000`。全部都失敗的最壞情況（TWSE全掛+Yahoo全掛）約在10幾秒內一定會結束，不是無限卡住。
@@ -78,5 +86,9 @@
 
 ## 環境限制（不是程式問題）
 
-- 這個沙盒的網路代理會擋掉對 `mis.twse.com.tw` 的連線（安全性限制），所以沙盒內無法直接測試 TWSE 這條路徑本身是否連得到；但這是台灣股市 App/網站廣泛使用的公開端點，失敗時的備援機制已經涵蓋這個情境。
+- 這個沙盒的網路代理會擋掉對 `mis.twse.com.tw` 的連線（安全性限制），所以沙盒內無法直接測試 TWSE 這條路徑本身是否連得到。
+- **沙盒裡的 Playwright 瀏覽器完全沒有對外網路**（連 `fonts.googleapis.com` 都 `net::ERR_CONNECTION_RESET`）——只有 `curl`／`node` 走得通代理。所以**瀏覽器端的真實網路測試在這裡做不到**，Playwright 只能拿來測有 mock 的 UI 邏輯。曾經差點把這個沙盒限制誤判成「修正無效」，記住這個區別：
+  - 要驗證報價鏈路本身能不能拿到資料 → 用 `node --input-type=module -e "import {getLiveQuote} ..."`（會走代理，測得到真實網路）
+  - 要驗證 CORS 標頭 → 用 `curl -D - -H "Origin: https://wang123890-alt.github.io"` 看回應有沒有 `access-control-allow-origin`
+  - 要驗證畫面邏輯 → Playwright ＋ 蓋掉 `window.fetch`
 - 週末/非交易時間不會有真正的盤中成交價，所有來源都一樣，這是正常現象不是 bug。
