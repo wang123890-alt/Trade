@@ -44,6 +44,43 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Public CORS-passthrough proxies — the proxy only relays bytes, it never
+// sees anything besides the target URL being requested (a stock code, no
+// user data). Used to reach endpoints that don't send CORS headers to
+// arbitrary origins, so a pure front-end page (no backend of its own)
+// couldn't otherwise read their response at all. Public proxies are
+// themselves flaky (observed both of these return a transient 5xx within
+// the same minute during testing), so more than one is tried in order
+// rather than trusting a single one to be up.
+const CORS_PROXIES = [
+  (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+  (target) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+];
+
+/** Fetch JSON from a URL that may not send CORS headers: try the request
+ * directly first (cheap, and some public endpoints do allow it), and if
+ * that's blocked or errors out, retry through each CORS proxy in turn.
+ * Returns the parsed JSON, or null if every attempt failed. Never throws. */
+async function fetchJsonWithProxyFallback(targetUrl) {
+  try {
+    const response = await fetchWithTimeout(targetUrl);
+    if (response.ok) return await response.json();
+  } catch (err) {
+    // Most likely a CORS rejection (the browser blocks the response before
+    // it ever reaches this code) — fall through to a proxied retry instead
+    // of giving up.
+  }
+  for (const buildProxyUrl of CORS_PROXIES) {
+    try {
+      const response = await fetchWithTimeout(buildProxyUrl(targetUrl));
+      if (response.ok) return await response.json();
+    } catch (err) {
+      // This proxy is down or unreachable — try the next one.
+    }
+  }
+  return null;
+}
+
 // TWSE's real-time feed is known to throttle/block requests that arrive in
 // too tight a burst — observed in practice to need on the order of a few
 // seconds of spacing between hits from the same client. A single stock's
@@ -128,22 +165,15 @@ const TwseRealtimeProvider = {
     // A stock's market (上市 vs 上櫃) isn't known ahead of time, so try
     // both prefixes — the wrong one simply comes back with no match.
     for (const market of ['tse', 'otc']) {
-      try {
-        const url = `${TWSE_REALTIME_BASE}?ex_ch=${market}_${stockId}.tw&json=1&delay=0`;
-        const response = await fetchWithTimeout(url);
-        if (!response.ok) continue;
-        const payload = await response.json();
-        const row = payload?.msgArray?.[0];
-        if (!row) continue;
-        const date = parseTwseDate(row.d);
-        const traded = parseFloat(row.z); // 最新成交價；開盤前/無成交時是 '-'
-        if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true };
-        const prevClose = parseFloat(row.y); // 昨收，作為尚無成交時的退而求其次
-        if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false };
-      } catch (err) {
-        // Network error, blocked, or unexpected shape — try the other
-        // market prefix, then give up (getLiveQuote falls back to FinMind).
-      }
+      const url = `${TWSE_REALTIME_BASE}?ex_ch=${market}_${stockId}.tw&json=1&delay=0`;
+      const payload = await fetchJsonWithProxyFallback(url);
+      const row = payload?.msgArray?.[0];
+      if (!row) continue; // no match on this market, or every fetch attempt failed — try the other prefix
+      const date = parseTwseDate(row.d);
+      const traded = parseFloat(row.z); // 最新成交價；開盤前/無成交時是 '-'
+      if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true };
+      const prevClose = parseFloat(row.y); // 昨收，作為尚無成交時的退而求其次
+      if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false };
     }
     return null;
   },
@@ -165,25 +195,17 @@ const TwseRealtimeProvider = {
       if (remaining.length === 0) break;
       if (!isFirstRequest) await sleep(TWSE_REQUEST_SPACING_MS);
       isFirstRequest = false;
-      try {
-        const query = remaining.map((id) => `${market}_${id}.tw`).join('|');
-        const url = `${TWSE_REALTIME_BASE}?ex_ch=${query}&json=1&delay=0`;
-        const response = await fetchWithTimeout(url);
-        if (response.ok) {
-          const payload = await response.json();
-          for (const row of payload?.msgArray || []) {
-            const id = row.c; // stock code
-            if (!id || result[id]) continue;
-            const date = parseTwseDate(row.d);
-            const traded = parseFloat(row.z);
-            if (Number.isFinite(traded)) { result[id] = { price: traded, date, isIntraday: true }; continue; }
-            const prevClose = parseFloat(row.y);
-            if (Number.isFinite(prevClose)) result[id] = { price: prevClose, date, isIntraday: false };
-          }
-        }
-      } catch (err) {
-        // Network error or blocked — leave these for the OTC pass (or the
-        // caller's per-stock Yahoo/FinMind fallback if that fails too).
+      const query = remaining.map((id) => `${market}_${id}.tw`).join('|');
+      const url = `${TWSE_REALTIME_BASE}?ex_ch=${query}&json=1&delay=0`;
+      const payload = await fetchJsonWithProxyFallback(url);
+      for (const row of payload?.msgArray || []) {
+        const id = row.c; // stock code
+        if (!id || result[id]) continue;
+        const date = parseTwseDate(row.d);
+        const traded = parseFloat(row.z);
+        if (Number.isFinite(traded)) { result[id] = { price: traded, date, isIntraday: true }; continue; }
+        const prevClose = parseFloat(row.y);
+        if (Number.isFinite(prevClose)) result[id] = { price: prevClose, date, isIntraday: false };
       }
       remaining = remaining.filter((id) => !result[id]);
     }
@@ -191,24 +213,14 @@ const TwseRealtimeProvider = {
   },
 };
 
-// Yahoo Finance's chart API (query1.finance.yahoo.com) has real intraday
-// data for TW-listed stocks but sends no CORS header, so a pure front-end
-// page (no backend of its own) cannot read its response directly. Routed
-// through a public CORS-passthrough proxy instead — the proxy only relays
-// bytes, it never sees anything besides the stock code being requested.
-// Public proxies are themselves flaky (observed both of these return a
-// transient 5xx within the same minute during testing), so more than one is
-// tried in order rather than trusting a single one to be up.
-const CORS_PROXIES = [
-  (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-  (target) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-];
 const YAHOO_CHART_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
 /** Best-effort intraday quote from Yahoo Finance, used when TWSE's own feed
  * doesn't come back with anything. Tries the listed (.TW) suffix first, then
  * OTC (.TWO) — same reasoning as TwseRealtimeProvider not knowing a stock's
- * market ahead of time — and for each suffix tries each CORS proxy in turn.
+ * market ahead of time. Its chart API sends no CORS header at all (unlike
+ * TWSE, which at least sometimes answers a direct request), so this goes
+ * straight to the proxy fallback without trying direct first.
  * Never throws; returns null when nothing works. */
 const YahooFinanceProvider = {
   async getQuote(stockId) {

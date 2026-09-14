@@ -97,6 +97,25 @@ await testAsync('TwseRealtimeProvider.getQuote returns null (never throws) when 
   assert.equal(quote, null);
 });
 
+await testAsync('TwseRealtimeProvider.getQuote falls back to a CORS proxy when the direct request is blocked', async () => {
+  // mis.twse.com.tw is documented not to send CORS headers to arbitrary
+  // origins, so a direct browser fetch can reject outright (a TypeError,
+  // same shape as any other network/CORS failure) even though the endpoint
+  // itself is up — this must not be treated as "no data", it must retry via
+  // the same CORS-proxy chain Yahoo already uses.
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (!url.includes('allorigins.win') && !url.includes('codetabs.com')) {
+      throw new TypeError('Failed to fetch'); // simulated CORS rejection
+    }
+    return { ok: true, json: async () => ({ msgArray: [{ z: '1090.00', y: '1080.00', d: '20260912' }] }) };
+  };
+  const quote = await TwseRealtimeProvider.getQuote('2330');
+  assert.deepEqual(quote, { price: 1090, date: '2026-09-12', isIntraday: true });
+  assert.ok(urls.some((u) => u.includes('allorigins.win')), 'expected a proxied retry after the direct call was blocked');
+});
+
 await testAsync('TwseRealtimeProvider.getQuotes fetches all stockIds in ONE request per market, not one per stock', async () => {
   const urls = [];
   globalThis.fetch = async (url) => {
