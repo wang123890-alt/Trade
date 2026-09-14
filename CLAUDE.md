@@ -52,7 +52,7 @@
 
 - **K線歷史資料**：FinMind（`api.finmindtrade.com`），免費版只有日K，且有 CORS 支援，可直接前端 fetch。
 - **持股頁盤中即時報價**（`getLiveQuote`）三層備援，理由是任何單一公開/非官方端點都可能不穩：
-  1. `TwseRealtimeProvider` — TWSE MIS（`mis.twse.com.tw`），依序試 `tse_`/`otc_` 前綴
+  1. `TwseRealtimeProvider` — TWSE MIS（`mis.twse.com.tw`），依序試 `tse_`/`otc_` 前綴。**這個端點也不保證有 CORS 標頭**（網路上其他人爬蟲筆記有明確提到「CORS會導致失敗」），直接 fetch 有時通有時不通；所以跟 Yahoo 用同一套 `fetchJsonWithProxyFallback()`：先試直接打，失敗（CORS/網路錯誤/非200）就退到 `CORS_PROXIES` 代理重打一次，不是直接判定「這個市場沒有這檔」。這也是「全部更新」偶爾整批都不動的根因之一，不是只有下面的節流/逾時問題。
   2. `YahooFinanceProvider` — 雅虎財經 chart API（`query1.finance.yahoo.com`，`.TW`/`.TWO`後綴）。**這個端點沒有 CORS 標頭**，因為這個 App 是純前端（無後端），改透過公開 CORS 代理轉發（`api.allorigins.win`、`api.codetabs.com` 依序嘗試）——這兩個代理本身也不穩定，實測時都出現過短暫 5xx，這是已知、能接受的風險，設計上任何一層失敗都回傳 `null` 而非拋錯，最終還有 FinMind 兜底。
   3. `FinMindProvider.getQuote` — 只在前兩者都失敗時才用，因為它本質是「最新一根日K收盤價」，只有收盤後才準確，盤中沒有意義。
 - 雅虎股市（`tw.stock.yahoo.com`）網頁本身也沒有 CORS 標頭，一樣走不通，已測試過不用重測。
