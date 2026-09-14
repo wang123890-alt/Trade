@@ -56,6 +56,7 @@
   2. `YahooFinanceProvider` — 雅虎財經 chart API（`query1.finance.yahoo.com`，`.TW`/`.TWO`後綴）。**這個端點沒有 CORS 標頭**，因為這個 App 是純前端（無後端），改透過公開 CORS 代理轉發（`api.allorigins.win`、`api.codetabs.com` 依序嘗試）——這兩個代理本身也不穩定，實測時都出現過短暫 5xx，這是已知、能接受的風險，設計上任何一層失敗都回傳 `null` 而非拋錯，最終還有 FinMind 兜底。
   3. `FinMindProvider.getQuote` — 只在前兩者都失敗時才用，因為它本質是「最新一根日K收盤價」，只有收盤後才準確，盤中沒有意義。
 - 雅虎股市（`tw.stock.yahoo.com`）網頁本身也沒有 CORS 標頭，一樣走不通，已測試過不用重測。
+- **持股頁「全部更新」批次查詢的節流與逾時**：TWSE MIS 對過於密集的請求會節流/擋掉（使用者實測抓到過：批次更新逐檔各打一次會卡住），所以 `TwseRealtimeProvider.getQuotes()` 把同一市場前綴的所有代號合併成一次請求（`ex_ch=A|B|C`），且第二輪（otc補查）前會 `await sleep(TWSE_REQUEST_SPACING_MS)`（4.5秒間隔）才發下一個請求，不是緊接著打。另外這個模組所有 `fetch()` 都經過 `fetchWithTimeout()`（8秒逾時、用 `AbortController`）——因為公開端點或 CORS 代理曾經整個掛住不回應也不報錯，沒有逾時保護的話「全部更新」按鈕會卡在「更新中…」永遠轉不出來（使用者截圖抓到卡超過1分鐘），現在保證每次查詢在有限時間內一定會結束（失敗就換下一層備援）。
 
 ## 從截圖手動輸入交易紀錄（容易出錯，務必照下面流程）
 

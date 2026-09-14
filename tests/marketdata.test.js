@@ -118,7 +118,7 @@ await testAsync('TwseRealtimeProvider.getQuotes fetches all stockIds in ONE requ
   assert.deepEqual(quotes['2317'], { price: 105, date: '2026-09-12', isIntraday: true });
 });
 
-await testAsync('TwseRealtimeProvider.getQuotes retries only the unmatched stockIds on the OTC pass', async () => {
+await testAsync('TwseRealtimeProvider.getQuotes retries only the unmatched stockIds on the OTC pass, spaced out from the first request', async () => {
   const urls = [];
   globalThis.fetch = async (url) => {
     urls.push(url);
@@ -127,12 +127,25 @@ await testAsync('TwseRealtimeProvider.getQuotes retries only the unmatched stock
     }
     return { ok: true, json: async () => ({ msgArray: [{ c: '6488', z: '55.5', y: '55.0', d: '20260912' }] }) };
   };
-  const quotes = await TwseRealtimeProvider.getQuotes(['2330', '6488']);
+  // The 2nd (OTC) pass is deliberately spaced out via a real setTimeout to
+  // respect TWSE's anti-scraping request spacing — fire it immediately here
+  // so the test doesn't actually wait, while still exercising that a delay
+  // is scheduled between the two passes (not fired back-to-back).
+  const realSetTimeout = globalThis.setTimeout;
+  const scheduledDelays = [];
+  globalThis.setTimeout = (fn, ms) => { if (ms > 0) scheduledDelays.push(ms); return realSetTimeout(fn, 0); };
+  let quotes;
+  try {
+    quotes = await TwseRealtimeProvider.getQuotes(['2330', '6488']);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
   assert.equal(quotes['2330'].price, 1090);
   assert.equal(quotes['6488'].price, 55.5);
   assert.equal(urls.length, 2);
   assert.ok(urls[0].includes('tse_2330.tw') && urls[0].includes('tse_6488.tw'));
   assert.ok(urls[1].includes('otc_6488.tw') && !urls[1].includes('2330'));
+  assert.ok(scheduledDelays.includes(4500), `expected a 4.5s spacing delay before the 2nd TWSE request, got ${JSON.stringify(scheduledDelays)}`);
 });
 
 await testAsync('getLiveQuotes falls back to Yahoo/FinMind per stock for anything TWSE\'s batch call missed', async () => {
@@ -145,7 +158,18 @@ await testAsync('getLiveQuotes falls back to Yahoo/FinMind per stock for anythin
     }
     return { ok: false };
   };
-  const quotes = await getLiveQuotes(['2330', '6488']);
+  // 6488 won't match on either TWSE pass, which schedules a real spacing
+  // delay before the 2nd (OTC) pass — fire it immediately so this test (whose
+  // point is the Yahoo/FinMind fallback, not the TWSE retry spacing already
+  // covered by the dedicated test above) doesn't actually wait on it.
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms) => realSetTimeout(fn, ms > 0 ? 0 : ms);
+  let quotes;
+  try {
+    quotes = await getLiveQuotes(['2330', '6488']);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
   assert.equal(quotes['2330'].price, 1090);
   assert.equal(quotes['6488'].price, 55.5);
 });

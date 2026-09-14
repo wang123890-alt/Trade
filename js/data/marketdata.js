@@ -20,6 +20,39 @@ class MarketDataError extends Error {
   }
 }
 
+const FETCH_TIMEOUT_MS = 8000;
+
+/** Every network call in this module goes through this instead of raw
+ * fetch(). A plain fetch() has no timeout of its own — if a public endpoint
+ * or CORS proxy (both used below) hangs instead of failing outright, a
+ * "update all" loop with several stocks in its fallback chain can look
+ * frozen for a long time with no error and no way to recover except
+ * reloading the page. Aborting after a fixed timeout guarantees every quote
+ * attempt resolves (as a caught error) within a bounded time so callers can
+ * move on to the next fallback. */
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// TWSE's real-time feed is known to throttle/block requests that arrive in
+// too tight a burst — observed in practice to need on the order of a few
+// seconds of spacing between hits from the same client. A single stock's
+// "更新" only ever fires one request (its stock matches on the first market
+// tried), so it never bumps into this; the batched getQuotes() below can
+// need a second request (the OTC retry pass) right after the first, so that
+// second request is deliberately spaced out rather than fired back-to-back.
+const TWSE_REQUEST_SPACING_MS = 4500;
+
 const FINMIND_BASE = 'https://api.finmindtrade.com/api/v4/data';
 
 const FinMindProvider = {
@@ -33,7 +66,7 @@ const FinMindProvider = {
 
     let response;
     try {
-      response = await fetch(`${FINMIND_BASE}?${params.toString()}`);
+      response = await fetchWithTimeout(`${FINMIND_BASE}?${params.toString()}`);
     } catch (err) {
       throw new MarketDataError('無法連線到 FinMind API', err);
     }
@@ -97,7 +130,7 @@ const TwseRealtimeProvider = {
     for (const market of ['tse', 'otc']) {
       try {
         const url = `${TWSE_REALTIME_BASE}?ex_ch=${market}_${stockId}.tw&json=1&delay=0`;
-        const response = await fetch(url);
+        const response = await fetchWithTimeout(url);
         if (!response.ok) continue;
         const payload = await response.json();
         const row = payload?.msgArray?.[0];
@@ -127,12 +160,15 @@ const TwseRealtimeProvider = {
   async getQuotes(stockIds) {
     const result = {};
     let remaining = [...new Set(stockIds)];
+    let isFirstRequest = true;
     for (const market of ['tse', 'otc']) {
       if (remaining.length === 0) break;
+      if (!isFirstRequest) await sleep(TWSE_REQUEST_SPACING_MS);
+      isFirstRequest = false;
       try {
         const query = remaining.map((id) => `${market}_${id}.tw`).join('|');
         const url = `${TWSE_REALTIME_BASE}?ex_ch=${query}&json=1&delay=0`;
-        const response = await fetch(url);
+        const response = await fetchWithTimeout(url);
         if (response.ok) {
           const payload = await response.json();
           for (const row of payload?.msgArray || []) {
@@ -180,7 +216,7 @@ const YahooFinanceProvider = {
       const target = `${YAHOO_CHART_BASE}/${stockId}.${suffix}?interval=1m&range=1d`;
       for (const buildProxyUrl of CORS_PROXIES) {
         try {
-          const response = await fetch(buildProxyUrl(target));
+          const response = await fetchWithTimeout(buildProxyUrl(target));
           if (!response.ok) continue;
           const payload = await response.json();
           const meta = payload?.chart?.result?.[0]?.meta;
