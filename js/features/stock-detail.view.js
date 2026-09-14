@@ -5,7 +5,7 @@ import { computeMA, computeRSI, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
-import { formatMoney, formatDate, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, formatTime, pnlClass } from '../utils/format.js';
 
 const RSI_OVERBOUGHT = 70;
 const RSI_OVERSOLD = 30;
@@ -44,6 +44,7 @@ async function renderStockDetailView(container, stockId) {
 async function loadAndRenderChart(container, stockId, stockTx) {
   const chartArea = container.querySelector('#chart-area');
   let bars;
+  let sourceLabel;
   try {
     // Yahoo first: its daily bars include today's in-progress session,
     // while FinMind's free-tier dataset lags by several days (measured
@@ -51,9 +52,11 @@ async function loadAndRenderChart(container, stockId, stockTx) {
     // still the fallback since it's the CORS-friendly, no-relay-needed
     // source when Yahoo's relay chain has nothing.
     bars = await YahooFinanceProvider.getKLine(stockId);
+    sourceLabel = '雅虎';
   } catch (err) {
     try {
       bars = await FinMindProvider.getKLine(stockId);
+      sourceLabel = 'FinMind';
     } catch (err2) {
       renderCsvFallback(chartArea, stockId, err2);
       return;
@@ -65,7 +68,7 @@ async function loadAndRenderChart(container, stockId, stockTx) {
     return;
   }
 
-  renderChartFromBars(chartArea, bars, stockTx);
+  renderChartFromBars(chartArea, bars, stockTx, { source: sourceLabel, fetchedAt: new Date().toISOString() });
 }
 
 function renderCsvFallback(chartArea, stockId, err) {
@@ -82,7 +85,7 @@ function renderCsvFallback(chartArea, stockId, err) {
     const csvText = chartArea.querySelector('#csv-input').value;
     try {
       const bars = CsvProvider.parse(csvText);
-      renderChartFromBars(chartArea, bars, []);
+      renderChartFromBars(chartArea, bars, [], { source: '手動貼上', fetchedAt: new Date().toISOString() });
     } catch (parseErr) {
       const banner = document.createElement('div');
       banner.className = 'error-banner';
@@ -92,7 +95,7 @@ function renderCsvFallback(chartArea, stockId, err) {
   });
 }
 
-function renderChartFromBars(chartArea, bars, stockTx) {
+function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const ma5 = computeMA(bars, 5);
   const ma10 = computeMA(bars, 10);
   const ma20 = computeMA(bars, 20);
@@ -125,11 +128,14 @@ function renderChartFromBars(chartArea, bars, stockTx) {
   if (lastRSI != null && lastRSI <= RSI_OVERSOLD) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超賣區間`);
 
   chartArea.innerHTML = `
-    <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-      <span class="tag tag-accent">MA5</span>
-      <span class="tag" style="color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.25);">MA10</span>
-      <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20</span>
-      <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60</span>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <span class="tag tag-accent">MA5</span>
+        <span class="tag" style="color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.25);">MA10</span>
+        <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20</span>
+        <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60</span>
+      </div>
+      ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px;">${meta.source ? `${meta.source} · ` : ''}${formatTime(meta.fetchedAt)}更新</div>` : ''}
     </div>
     ${renderKLineChart(bars, {
       maSeries: [
