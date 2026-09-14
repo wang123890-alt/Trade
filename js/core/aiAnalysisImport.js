@@ -55,4 +55,13 @@ function classifyAiAnalysisText(text, stocks) {
   return { byStock, unmatched: unmatched.join('\n').trim() };
 }
 
-export { classifyAiAnalysisText };
+/** Appends newly pasted analysis onto whatever a stock's field already
+ * holds, separated by a dated marker so old context isn't silently lost —
+ * used by both the batch paste-and-classify import and a single-stock
+ * paste, so pasting a fresh detailed writeup behaves the same way no
+ * matter which of the two paths it comes in through. */
+function appendAiAnalysis(existing, newText, dateLabel) {
+  return existing ? `${existing}\n\n---- ${dateLabel} ----\n${newText}` : newText;
+}
+
+export { classifyAiAnalysisText, appendAiAnalysis };

@@ -1,6 +1,6 @@
 // Plain Node test runner. Run with: node tests/aiAnalysisImport.test.js
 import assert from 'node:assert/strict';
-import { classifyAiAnalysisText } from '../js/core/aiAnalysisImport.js';
+import { classifyAiAnalysisText, appendAiAnalysis } from '../js/core/aiAnalysisImport.js';
 
 let passed = 0;
 let failed = 0;
@@ -57,6 +57,16 @@ test('text mentioning no known stock is entirely unmatched', () => {
   const { byStock, unmatched } = classifyAiAnalysisText(text, stocks);
   assert.equal(Object.keys(byStock).length, 0);
   assert.equal(unmatched, '2317 鴻海：法說會後轉強。');
+});
+
+test('appendAiAnalysis returns the new text as-is when there is nothing to append to', () => {
+  assert.equal(appendAiAnalysis('', '第一次的分析', '2026/09/14'), '第一次的分析');
+  assert.equal(appendAiAnalysis(null, '第一次的分析', '2026/09/14'), '第一次的分析');
+});
+
+test('appendAiAnalysis appends new text after existing content with a dated separator', () => {
+  const result = appendAiAnalysis('舊的分析', '新的詳解', '2026/09/14');
+  assert.equal(result, '舊的分析\n\n---- 2026/09/14 ----\n新的詳解');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
