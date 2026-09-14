@@ -59,6 +59,50 @@ test('text mentioning no known stock is entirely unmatched', () => {
   assert.equal(unmatched, '2317 鴻海：法說會後轉強。');
 });
 
+test('section mode (text with "---" dividers): each block stays with its own header stock, unaffected by other stocks mentioned inside it', () => {
+  const threeStocks = [
+    { stockId: '2330', stockName: '台積電' },
+    { stockId: '2454', stockName: '聯發科' },
+    { stockId: '0050', stockName: '台灣50' },
+  ];
+  const text = [
+    '2330 台積電',
+    '',
+    '目前續抱，短線震盪。',
+    '---',
+    '2454 聯發科',
+    '',
+    '目前明顯不如台積電強，因此相對強弱屬偏弱。',
+    '---',
+    '0050 台灣50',
+    '',
+    '0050 目前台積電：約 57%，聯發科：約 6.53%，高度集中在大型科技權值股。',
+  ].join('\n');
+  const { byStock } = classifyAiAnalysisText(text, threeStocks);
+  assert.ok(byStock['2330'].includes('目前續抱'));
+  assert.ok(!byStock['2330'].includes('不如台積電強')); // stayed with 2454's own section
+  assert.ok(byStock['2454'].includes('不如台積電強'));
+  assert.ok(byStock['0050'].includes('高度集中')); // stayed with 0050 despite naming 台積電/聯發科 inside
+});
+
+test('section mode: a block naming several stocks roughly evenly (a ranking table) is unmatched, not guessed onto the first one', () => {
+  const text = [
+    '2330 台積電',
+    '',
+    '個股分析內容。',
+    '---',
+    '2886 兆豐金',
+    '',
+    '個股分析內容。',
+    '---',
+    '排名：1. 2330 台積電 2. 2886 兆豐金',
+  ].join('\n');
+  const { byStock, unmatched } = classifyAiAnalysisText(text, stocks);
+  assert.ok(!byStock['2330'].includes('排名'));
+  assert.ok(!byStock['2886'] || !byStock['2886'].includes('排名'));
+  assert.ok(unmatched.includes('排名'));
+});
+
 test('appendAiAnalysis returns the new text as-is when there is nothing to append to', () => {
   assert.equal(appendAiAnalysis('', '第一次的分析', '2026/09/14'), '第一次的分析');
   assert.equal(appendAiAnalysis(null, '第一次的分析', '2026/09/14'), '第一次的分析');
