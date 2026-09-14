@@ -96,29 +96,31 @@ function render(container) {
       const stockId = cardEl.getAttribute('data-stock-id');
       const input = cardEl.querySelector('.price-input');
 
-      let price = parseFloat(input.value);
-      if (!(price > 0)) {
-        // No manual value typed — try to auto-fetch the current price first.
-        btn.disabled = true;
-        btn.textContent = '取得中…';
-        try {
-          const quote = await getLiveQuote(stockId);
-          if (quote) {
-            price = quote.price;
-            input.value = price;
-          }
-        } catch (err) {
-          // Fall through — user can still type a price manually.
-        }
-        btn.textContent = '更新';
-        if (!(price > 0)) {
-          alert('自動取得市價失敗，請手動輸入市價');
-          btn.disabled = false;
-          return;
-        }
-      }
-
+      // "更新" always tries to fetch a fresh live price first — the input
+      // pre-fills with the last known market price for display, so reading
+      // it here first (only falling back to auto-fetch when empty) meant
+      // every click after the first successful update just re-saved that
+      // same stale value and silently did nothing, since the field is never
+      // empty again once it has a price in it.
       btn.disabled = true;
+      btn.textContent = '取得中…';
+      let price = null;
+      try {
+        const quote = await getLiveQuote(stockId);
+        if (quote) price = quote.price;
+      } catch (err) {
+        // Fall through — use whatever's manually typed, if anything.
+      }
+      btn.textContent = '更新';
+
+      if (!(price > 0)) price = parseFloat(input.value);
+      if (!(price > 0)) {
+        alert('自動取得市價失敗，請手動輸入市價');
+        btn.disabled = false;
+        return;
+      }
+      input.value = price;
+
       const result = await ManualPriceRepository.set(stockId, price);
       if (!result.ok) {
         alert(result.error?.message || '同步失敗');
