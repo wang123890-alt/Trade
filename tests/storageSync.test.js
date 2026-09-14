@@ -124,5 +124,29 @@ await test('saveMany persists once for the whole batch, not once per item', asyn
   assert.equal(storage.TransactionRepository.getAll().length, 3);
 });
 
+await test('initStore fills in stockAiAnalysis when older remote content predates that field', async () => {
+  const remoteDoc = { version: '1.0', transactions: [], watchlist: [], manualPrices: {}, stockNotes: {} };
+  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ content: b64(remoteDoc), sha: 'sha-1' }) });
+  await storage.initStore();
+  assert.deepEqual(storage.StockAiAnalysisRepository.getAll(), {});
+  assert.equal(storage.StockAiAnalysisRepository.get('2330'), '');
+});
+
+await test('StockAiAnalysisRepository.set/setMany persist and read back', async () => {
+  globalThis.fetch = async (url, opts) => {
+    if (!opts || opts.method !== 'PUT') {
+      return { ok: true, status: 200, json: async () => ({ content: b64({ version: '1.0', transactions: [], watchlist: [], manualPrices: {}, stockNotes: {} }), sha: 'sha-0' }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ content: { sha: 'sha-1' } }) };
+  };
+  await storage.initStore();
+  await storage.StockAiAnalysisRepository.set('2330', '偏多');
+  assert.equal(storage.StockAiAnalysisRepository.get('2330'), '偏多');
+  await storage.StockAiAnalysisRepository.setMany({ '2886': '穩健', '0052': '長抱' });
+  assert.equal(storage.StockAiAnalysisRepository.get('2886'), '穩健');
+  assert.equal(storage.StockAiAnalysisRepository.get('0052'), '長抱');
+  assert.equal(storage.StockAiAnalysisRepository.get('2330'), '偏多'); // untouched by setMany
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
