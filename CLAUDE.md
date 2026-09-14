@@ -53,7 +53,7 @@
 
 ## 資料來源（`js/data/marketdata.js`）
 
-- **K線歷史資料**：FinMind（`api.finmindtrade.com`），免費版只有日K，且有 CORS 支援，可直接前端 fetch。
+- **K線歷史資料**：`YahooFinanceProvider.getKLine` 優先、`FinMindProvider.getKLine` 備援（`stock-detail.view.js`）。**FinMind 免費版日K會落後好幾天**（2026-09-14 實測：FinMind 最新一筆停在09-11，雅虎經 r.jina.ai 同時間點已經有09-14當天的即時中盤資料），這是「K線沒更新、只有價格有更新」這個回報的根因——價格走 `getLiveQuote()`（雅虎優先）所以是新的，K線當時還是單獨走 FinMind 所以停在好幾天前。雅虎 chart API 的 `range` 參數只能選固定區間（`5d`/`1mo`/`3mo`/`6mo`/`1y`/`2y`/`5y`），`yahooRangeFor()` 依需要的起始日期挑最接近的；回傳資料某些區間會用 `close:null` 補非交易日，`parseYahooChartBars()` 會把這種列過濾掉，不會畫出假的0元蠟燭。FinMind 仍保留當備援，因為它不需要中繼、CORS 直接能打。
 - **持股頁盤中即時報價**（`getLiveQuote`/`getLiveQuotes`）實際只有兩層，順序是 **雅虎 → FinMind**：
   1. `YahooFinanceProvider` — 雅虎財經 chart API（`query1.finance.yahoo.com`，`.TW`/`.TWO`後綴）。沒有 CORS 標頭，一定要走中繼；`.TW`／`.TWO` 兩種猜測**平行**發送取最快的。**這是唯一真正拿得到盤中價的來源。**
   2. `FinMindProvider.getQuote` — 只是安全網，本質是「最新一根日K收盤價」，盤中不會變。

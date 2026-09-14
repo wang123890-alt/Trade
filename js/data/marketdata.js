@@ -263,6 +263,47 @@ function parseYahooMeta(payload) {
  * possible), so both suffix guesses (.TW listed, .TWO OTC) are raced in
  * parallel instead of tried one after another. Never throws; returns null
  * when nothing works. */
+// Maps a requested history window to one of Yahoo's fixed `range` values —
+// it doesn't take an arbitrary start date, only enum buckets.
+function yahooRangeFor(startDate) {
+  if (!startDate) return '6mo';
+  const days = (Date.now() - new Date(`${startDate}T00:00:00Z`).getTime()) / 86400000;
+  if (days <= 5) return '5d';
+  if (days <= 28) return '1mo';
+  if (days <= 90) return '3mo';
+  if (days <= 180) return '6mo';
+  if (days <= 365) return '1y';
+  if (days <= 730) return '2y';
+  return '5y';
+}
+
+/** Turn a chart-endpoint payload into Bar[], the same shape
+ * FinMindProvider.getKLine returns. Yahoo pads non-trading days with a null
+ * close in some ranges — those are dropped rather than turned into a
+ * zero-price candle. Returns null (not []) when the shape is unusable, so
+ * the caller can tell "no data" from "couldn't parse this at all". */
+function parseYahooChartBars(payload, startDate) {
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const quote = result?.indicators?.quote?.[0];
+  if (!Array.isArray(timestamps) || !quote) return null;
+  const bars = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    if (quote.close[i] == null) continue;
+    const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
+    if (startDate && date < startDate) continue;
+    bars.push({
+      date,
+      open: quote.open[i],
+      high: quote.high[i],
+      low: quote.low[i],
+      close: quote.close[i],
+      volume: quote.volume[i],
+    });
+  }
+  return bars;
+}
+
 const YahooFinanceProvider = {
   async getQuote(stockId) {
     const attempts = ['TW', 'TWO'].map(async (suffix) => {
@@ -276,6 +317,28 @@ const YahooFinanceProvider = {
       return await Promise.any(attempts);
     } catch (err) {
       return null;
+    }
+  },
+
+  /** Daily K-line history — same contract as FinMindProvider.getKLine, and
+   * preferred over it: Yahoo's chart data includes today's in-progress bar,
+   * while FinMind's free-tier daily dataset lags by several days (measured
+   * 2026-09-14: FinMind's latest bar was 09-11, Yahoo's was today, 09-14).
+   * Throws MarketDataError on failure, matching the provider contract, so
+   * callers fall back the same way they already do for FinMind. */
+  async getKLine(stockId, { startDate } = {}) {
+    const range = yahooRangeFor(startDate);
+    const attempts = ['TW', 'TWO'].map(async (suffix) => {
+      const target = `${YAHOO_CHART_BASE}/${stockId}.${suffix}?interval=1d&range=${range}`;
+      const payload = await fetchJsonWithProxyFallback(target);
+      const bars = parseYahooChartBars(payload, startDate);
+      if (!bars || bars.length === 0) throw new Error(`no bars for .${suffix}`);
+      return bars;
+    });
+    try {
+      return await Promise.any(attempts);
+    } catch (err) {
+      throw new MarketDataError('雅虎財經K線資料無法取得', err);
     }
   },
 };
