@@ -1,7 +1,7 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository, StockAiAnalysisRepository } from '../data/storage.js';
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
-import { classifyAiAnalysisText } from '../core/aiAnalysisImport.js';
+import { classifyAiAnalysisText, appendAiAnalysis } from '../core/aiAnalysisImport.js';
 import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
@@ -132,13 +132,14 @@ function render(container) {
         <div style="margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">
           <div data-action="toggle-ai" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
             <span class="text-faint" style="font-size:11.5px; font-weight:600;">AI解析${aiText ? '' : '（未填寫）'}</span>
-            <span class="text-faint" style="font-size:11px;">展開/編輯</span>
+            <span class="text-faint" style="font-size:11px;">展開/新增</span>
           </div>
           <div data-ai-body hidden style="margin-top:6px;">
+            ${aiText ? `<div style="font-size:12px; white-space:pre-wrap; color:var(--text-dim); margin-bottom:8px; border-left:2px solid var(--border); padding-left:8px;">${escapeHtml(aiText)}</div>` : ''}
             <div class="form-field">
-              <textarea data-ai-input style="min-height:80px;">${escapeHtml(aiText)}</textarea>
+              <textarea data-ai-input placeholder="貼上這檔的AI詳解…" style="min-height:80px;"></textarea>
             </div>
-            <button class="btn btn-block" data-action="save-ai">儲存AI解析</button>
+            <button class="btn btn-block" data-action="save-ai">${aiText ? '附加新內容' : '儲存AI解析'}</button>
           </div>
         </div>
       </div>
@@ -164,9 +165,12 @@ function render(container) {
     btn.addEventListener('click', async () => {
       const cardEl = btn.closest('[data-stock-id]');
       const stockId = cardEl.getAttribute('data-stock-id');
-      const text = cardEl.querySelector('[data-ai-input]').value;
+      const newText = cardEl.querySelector('[data-ai-input]').value.trim();
+      if (!newText) return;
       btn.disabled = true;
-      await StockAiAnalysisRepository.set(stockId, text);
+      const existing = StockAiAnalysisRepository.get(stockId);
+      const today = new Date().toLocaleDateString('zh-TW');
+      await StockAiAnalysisRepository.set(stockId, appendAiAnalysis(existing, newText, today));
       render(container);
     });
   });
@@ -278,7 +282,7 @@ function renderAiPreview(panel, byStock, unmatched, positions, container) {
       if (!checkbox.checked) continue;
       const newText = previewArea.querySelector(`[data-preview-text="${stockId}"]`).value;
       const existing = StockAiAnalysisRepository.get(stockId);
-      updates[stockId] = existing ? `${existing}\n\n---- ${today} ----\n${newText}` : newText;
+      updates[stockId] = appendAiAnalysis(existing, newText, today);
     }
     if (Object.keys(updates).length === 0) {
       btn.disabled = false;
