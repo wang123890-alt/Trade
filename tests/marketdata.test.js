@@ -246,5 +246,10 @@ await testAsync('getLiveQuote falls back to FinMind\'s daily close only when bot
   assert.deepEqual(quote, { price: 103, date: '2026-09-11' });
 });
 
+await testAsync('getLiveQuote throws a descriptive error (not a silent null) when TWSE, Yahoo, and FinMind all have nothing', async () => {
+  globalThis.fetch = async () => ({ ok: false });
+  await assert.rejects(() => getLiveQuote('2330'), MarketDataError);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
