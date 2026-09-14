@@ -65,18 +65,13 @@ function render(container) {
         <div class="text-faint" style="font-size:11px; margin-top:2px;">
           持有 ${p.totalQuantity} 股 · 成本 ${p.averageCost.toFixed(2)}
         </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
-          <div style="flex:0 0 auto;">
-            ${hasPrice
-              ? `<div style="font-size:14px; font-weight:700;">${p.marketPrice}</div>
-                 <div class="${pnlClass(p.unrealizedPnL)}" style="font-size:11.5px; font-weight:600;">
-                   ${formatMoney(p.unrealizedPnL)} (${formatPercent(p.unrealizedPnLPercent)})
-                 </div>`
-              : `<div class="text-faint" style="font-size:12px;">未輸入現價</div>`}
-          </div>
-          <input type="number" step="0.01" min="0" placeholder="市價"
-                 class="price-input" style="width:90px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:7px 8px; color:var(--text); font-size:13px; min-height:36px;"
-                 value="${hasPrice ? p.marketPrice : ''}">
+        <div style="margin-top:8px;">
+          ${hasPrice
+            ? `<div style="font-size:14px; font-weight:700;">${p.marketPrice}</div>
+               <div class="${pnlClass(p.unrealizedPnL)}" style="font-size:11.5px; font-weight:600;">
+                 ${formatMoney(p.unrealizedPnL)} (${formatPercent(p.unrealizedPnLPercent)})
+               </div>`
+            : `<div class="text-faint" style="font-size:12px;">尚未取得市價</div>`}
         </div>
       </div>
     `;
@@ -94,14 +89,7 @@ function render(container) {
     btn.addEventListener('click', async () => {
       const cardEl = btn.closest('[data-stock-id]');
       const stockId = cardEl.getAttribute('data-stock-id');
-      const input = cardEl.querySelector('.price-input');
 
-      // "更新" always tries to fetch a fresh live price first — the input
-      // pre-fills with the last known market price for display, so reading
-      // it here first (only falling back to auto-fetch when empty) meant
-      // every click after the first successful update just re-saved that
-      // same stale value and silently did nothing, since the field is never
-      // empty again once it has a price in it.
       btn.disabled = true;
       btn.textContent = '取得中…';
       let price = null;
@@ -109,17 +97,15 @@ function render(container) {
         const quote = await getLiveQuote(stockId);
         if (quote) price = quote.price;
       } catch (err) {
-        // Fall through — use whatever's manually typed, if anything.
+        // Fall through — the null check below reports the failure.
       }
       btn.textContent = '更新';
 
-      if (!(price > 0)) price = parseFloat(input.value);
       if (!(price > 0)) {
-        alert('自動取得市價失敗，請手動輸入市價');
+        alert('自動取得市價失敗，請稍後再試');
         btn.disabled = false;
         return;
       }
-      input.value = price;
 
       const result = await ManualPriceRepository.set(stockId, price);
       if (!result.ok) {
