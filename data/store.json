@@ -1652,6 +1652,20 @@
       "strategy": "",
       "reason": "",
       "note": "登錄存券撥轉（元大帳戶截圖核對，非一般買進）"
+    },
+    {
+      "id": "yt_20260401_0052_1",
+      "stockId": "0052",
+      "stockName": "富邦科技",
+      "type": "BUY",
+      "dateTime": "2026-04-01",
+      "price": 44.61,
+      "quantity": 2000,
+      "fee": 78,
+      "tax": 0,
+      "strategy": "",
+      "reason": "",
+      "note": "現股買進（元大帳戶截圖核對）"
     }
   ],
   "watchlist": [
