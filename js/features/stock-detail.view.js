@@ -1,6 +1,6 @@
 import { recompute } from './transactions.js';
 import { StockNotesRepository } from '../data/storage.js';
-import { FinMindProvider, CsvProvider, MarketDataError } from '../data/marketdata.js';
+import { FinMindProvider, YahooFinanceProvider, CsvProvider, MarketDataError } from '../data/marketdata.js';
 import { computeMA, computeRSI, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
@@ -45,10 +45,19 @@ async function loadAndRenderChart(container, stockId, stockTx) {
   const chartArea = container.querySelector('#chart-area');
   let bars;
   try {
-    bars = await FinMindProvider.getKLine(stockId);
+    // Yahoo first: its daily bars include today's in-progress session,
+    // while FinMind's free-tier dataset lags by several days (measured
+    // 2026-09-14: FinMind stopped at 09-11, Yahoo had 09-14). FinMind is
+    // still the fallback since it's the CORS-friendly, no-relay-needed
+    // source when Yahoo's relay chain has nothing.
+    bars = await YahooFinanceProvider.getKLine(stockId);
   } catch (err) {
-    renderCsvFallback(chartArea, stockId, err);
-    return;
+    try {
+      bars = await FinMindProvider.getKLine(stockId);
+    } catch (err2) {
+      renderCsvFallback(chartArea, stockId, err2);
+      return;
+    }
   }
 
   if (bars.length === 0) {

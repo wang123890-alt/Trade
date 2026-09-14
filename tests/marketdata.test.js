@@ -207,6 +207,36 @@ await testAsync('YahooFinanceProvider.getQuote returns null (never throws) when 
   assert.equal(quote, null);
 });
 
+await testAsync('YahooFinanceProvider.getKLine parses chart-endpoint bars, dropping the null-close (non-trading) entries', async () => {
+  globalThis.fetch = async (url) => {
+    if (!(url.includes('api.allorigins.win') || url.includes('r.jina.ai'))) return { ok: false };
+    return {
+      ok: true,
+      text: async () => JSON.stringify({
+        chart: { result: [{
+          timestamp: [1757548800, 1757635200, 1757721600], // 2025-09-11, 12, 13 UTC — one is a holiday
+          indicators: { quote: [{
+            open: [100, null, 103],
+            high: [105, null, 108],
+            low: [99, null, 101],
+            close: [103, null, 106],
+            volume: [1000, null, 1200],
+          }] },
+        }] },
+      }),
+    };
+  };
+  const bars = await YahooFinanceProvider.getKLine('2330');
+  assert.equal(bars.length, 2);
+  assert.equal(bars[0].close, 103);
+  assert.equal(bars[1].close, 106);
+});
+
+await testAsync('YahooFinanceProvider.getKLine throws MarketDataError (matching FinMindProvider\'s contract) when nothing works', async () => {
+  globalThis.fetch = async () => ({ ok: false });
+  await assert.rejects(() => YahooFinanceProvider.getKLine('2330'), MarketDataError);
+});
+
 await testAsync('getLiveQuote never touches TWSE — a browser cannot read it, so it is out of the chain', async () => {
   const urls = [];
   globalThis.fetch = async (url) => {
