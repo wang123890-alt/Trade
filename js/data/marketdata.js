@@ -261,7 +261,17 @@ async function getLiveQuote(stockId) {
   if (twse) return twse;
   const yahoo = await YahooFinanceProvider.getQuote(stockId);
   if (yahoo) return yahoo;
-  return FinMindProvider.getQuote(stockId);
+  // Unlike TwseRealtimeProvider/YahooFinanceProvider (which swallow every
+  // failure and just return null), FinMindProvider.getQuote can throw a
+  // MarketDataError — it's meant to surface real problems (bad response
+  // shape, HTTP error) rather than hide them. Let that propagate here: the
+  // caller (holdings.view.js) shows err.message directly, which is the only
+  // way to tell "TWSE and Yahoo both had nothing, and here's exactly why
+  // FinMind also failed" from "everything returned null silently" — needed
+  // once TWSE/Yahoo's own reasons are already invisible by design.
+  const finmind = await FinMindProvider.getQuote(stockId);
+  if (finmind) return finmind;
+  throw new MarketDataError('TWSE、雅虎財經、FinMind 都查無這檔的價格資料');
 }
 
 /** Like getLiveQuote, but for many stocks at once — used by a bulk "update

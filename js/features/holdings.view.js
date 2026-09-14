@@ -41,9 +41,21 @@ function render(container) {
       const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
       const prices = {};
       for (const [stockId, quote] of Object.entries(quotes)) prices[stockId] = quote.price;
-      if (Object.keys(prices).length > 0) await ManualPriceRepository.setMany(prices);
+      if (Object.keys(prices).length > 0) {
+        await ManualPriceRepository.setMany(prices);
+        if (Object.keys(prices).length < positions.length) {
+          const missed = positions.filter((p) => !(p.stockId in prices)).map((p) => p.stockName).join('、');
+          alert(`部分更新成功，這幾檔沒有查到資料：${missed}`);
+        }
+      } else {
+        // getLiveQuotes() never throws — it returns {} when every source
+        // (TWSE, Yahoo, and FinMind) came back empty for every stock. That
+        // used to fall through silently: no error, so the catch below never
+        // ran, and no update happened with zero on-screen indication.
+        alert('全部更新失敗：TWSE、雅虎財經、FinMind 都查無資料，請稍後再試');
+      }
     } catch (err) {
-      alert(err?.message || '全部更新失敗，請稍後再試或逐檔手動更新');
+      alert(err?.message || '全部更新失敗，請稍後再試');
     }
     render(container);
   });
@@ -93,16 +105,21 @@ function render(container) {
       btn.disabled = true;
       btn.textContent = '取得中…';
       let price = null;
+      let fetchError = null;
       try {
         const quote = await getLiveQuote(stockId);
         if (quote) price = quote.price;
       } catch (err) {
-        // Fall through — the null check below reports the failure.
+        fetchError = err;
       }
       btn.textContent = '更新';
 
       if (!(price > 0)) {
-        alert('自動取得市價失敗，請稍後再試');
+        // Show the actual reason when there is one — this is the only way
+        // to tell "every source really has nothing right now" from "a
+        // specific source errored out" without opening devtools, which
+        // matters when the person testing this is on a phone.
+        alert(fetchError?.message || '自動取得市價失敗，請稍後再試');
         btn.disabled = false;
         return;
       }
