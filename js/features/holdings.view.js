@@ -1,17 +1,18 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
-import { formatMoney, formatPercent, pnlClass } from '../utils/format.js';
+import { formatMoney, formatPercent, formatTime, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
 // Where each displayed price came from ("雅虎" for a live intraday quote,
-// "09/12收盤" for FinMind's stale daily close), keyed by stockId. Only the
-// price itself is persisted, so this is in-memory and only labels prices
-// fetched in this session — enough to answer the question that kept coming
-// up: "I pressed 更新 and the number didn't move, is it broken?" A number
-// tagged 收盤 hasn't moved because the market's last settled price hasn't
-// moved, which is very different from a failed update.
-const priceSources = {};
+// "09/12收盤" for FinMind's stale daily close) and when this session last
+// fetched it, keyed by stockId. Only the price itself is persisted, so this
+// is in-memory and only labels prices fetched in this session — enough to
+// answer the question that kept coming up: "I pressed 更新 and the number
+// didn't move, is it broken?" A number tagged 收盤 hasn't moved because the
+// market's last settled price hasn't moved, which is very different from a
+// failed update; the fetch time answers "did 更新 actually just run".
+const priceMeta = {};
 
 function renderHoldingsView(container) {
   render(container);
@@ -46,9 +47,10 @@ function render(container) {
       // portfolio costs about as long as a single stock.
       const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
       const prices = {};
+      const fetchedAt = new Date().toISOString();
       for (const [stockId, quote] of Object.entries(quotes)) {
         prices[stockId] = quote.price;
-        priceSources[stockId] = quote.source;
+        priceMeta[stockId] = { source: quote.source, fetchedAt };
       }
       if (Object.keys(prices).length > 0) {
         await ManualPriceRepository.setMany(prices);
@@ -89,7 +91,7 @@ function render(container) {
         <div style="margin-top:8px;">
           ${hasPrice
             ? `<div style="font-size:14px; font-weight:700;">${p.marketPrice}
-                 ${priceSources[p.stockId] ? `<span class="text-faint" style="font-size:11px; font-weight:500;">${priceSources[p.stockId]}</span>` : ''}
+                 ${priceMeta[p.stockId] ? `<span class="text-faint" style="font-size:11px; font-weight:500;">${priceMeta[p.stockId].source} · ${formatTime(priceMeta[p.stockId].fetchedAt)}更新</span>` : ''}
                </div>
                <div class="${pnlClass(p.unrealizedPnL)}" style="font-size:11.5px; font-weight:600;">
                  ${formatMoney(p.unrealizedPnL)} (${formatPercent(p.unrealizedPnLPercent)})
@@ -121,7 +123,7 @@ function render(container) {
         const quote = await getLiveQuote(stockId);
         if (quote) {
           price = quote.price;
-          priceSources[stockId] = quote.source;
+          priceMeta[stockId] = { source: quote.source, fetchedAt: new Date().toISOString() };
         }
       } catch (err) {
         fetchError = err;
