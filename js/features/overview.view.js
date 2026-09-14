@@ -2,7 +2,7 @@ import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { computeRealizedSummary, computeUnrealizedSummary, groupByStock, groupByStrategy } from '../core/statistics.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
-import { formatMoney, formatDate, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, formatPercent, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
 function renderOverviewView(container) {
@@ -77,7 +77,7 @@ function renderOverviewView(container) {
           return {
             stockId: g.stockId,
             stockName: latestTx?.stockName || g.stockId,
-            detail: `${g.closedCount} 筆 · 勝率 ${g.winRate != null ? g.winRate.toFixed(0) + '%' : '—'}`,
+            detail: `${g.closedCount} 筆 · 損益率 ${formatPercent(g.realizedPnLPercent)}`,
             amount: formatMoney(g.totalRealizedPnL),
             amountClass: pnlClass(g.totalRealizedPnL),
           };
@@ -87,7 +87,7 @@ function renderOverviewView(container) {
           return {
             stockId: g.stockId,
             stockName: latestTx?.stockName || g.stockId,
-            detail: `${g.closedCount} 筆 · 勝率 ${g.winRate != null ? g.winRate.toFixed(0) + '%' : '—'}`,
+            detail: `${g.closedCount} 筆 · 損益率 ${formatPercent(g.realizedPnLPercent)}`,
             amount: formatMoney(g.totalRealizedPnL),
             amountClass: pnlClass(g.totalRealizedPnL),
           };

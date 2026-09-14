@@ -47,6 +47,20 @@ test('computeRealizedSummary handles empty input without dividing by zero', () =
   assert.equal(s.closedCount, 0);
   assert.equal(s.winRate, null);
   assert.equal(s.profitLossRatio, null);
+  assert.equal(s.realizedPnLPercent, null);
+});
+
+test('computeRealizedSummary weights realizedPnLPercent by cost, not by averaging each match\'s own percent', () => {
+  const matches = [
+    match({ buyCost: 100000, realizedPnL: 10000 }), // +10% on a big lot
+    match({ buyCost: 1000, realizedPnL: -900 }), // -90% on a tiny lot
+  ];
+  const s = computeRealizedSummary(matches);
+  // Naive averaging of (+10%, -90%) would give -40%; cost-weighted should
+  // stay close to the dominant lot's return since it's 100x the size.
+  assert.equal(s.totalRealizedPnL, 9100);
+  assert.ok(Math.abs(s.realizedPnLPercent - (9100 / 101000) * 100) < 1e-9);
+  assert.ok(s.realizedPnLPercent > 0);
 });
 
 test('computeRealizedSummary computes win rate and profit/loss ratio correctly', () => {

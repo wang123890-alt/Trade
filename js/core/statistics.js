@@ -14,6 +14,11 @@ function computeRealizedSummary(matches) {
   const avgLoss = losses.length > 0 ? sum(losses, (m) => m.realizedPnL) / losses.length : null;
   const profitLossRatio =
     avgWin != null && avgLoss != null && avgLoss !== 0 ? Math.abs(avgWin / avgLoss) : null;
+  // Cost-weighted return across all matches, not an average of each match's
+  // own percent — a stock with one huge lot and one tiny lot should have
+  // the huge lot dominate, the same way the P&L amount itself does.
+  const totalBuyCost = sum(matches, (m) => m.buyCost);
+  const realizedPnLPercent = totalBuyCost > 0 ? (totalRealizedPnL / totalBuyCost) * 100 : null;
 
   return {
     totalRealizedPnL,
@@ -24,6 +29,7 @@ function computeRealizedSummary(matches) {
     avgWin,
     avgLoss,
     profitLossRatio,
+    realizedPnLPercent,
   };
 }
 
