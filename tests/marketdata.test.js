@@ -5,7 +5,7 @@
 // tested against a mocked global.fetch so `node tests/*.test.js` never
 // depends on network access.
 import assert from 'node:assert/strict';
-import { CsvProvider, MarketDataError, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote } from '../js/data/marketdata.js';
+import { CsvProvider, MarketDataError, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote, getLiveQuotes } from '../js/data/marketdata.js';
 
 let passed = 0;
 let failed = 0;
@@ -95,6 +95,59 @@ await testAsync('TwseRealtimeProvider.getQuote returns null (never throws) when 
   globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
   const quote = await TwseRealtimeProvider.getQuote('2330');
   assert.equal(quote, null);
+});
+
+await testAsync('TwseRealtimeProvider.getQuotes fetches all stockIds in ONE request per market, not one per stock', async () => {
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    return {
+      ok: true,
+      json: async () => ({
+        msgArray: [
+          { c: '2330', z: '1090.00', y: '1080.00', d: '20260912' },
+          { c: '2317', z: '105.00', y: '104.00', d: '20260912' },
+        ],
+      }),
+    };
+  };
+  const quotes = await TwseRealtimeProvider.getQuotes(['2330', '2317']);
+  assert.equal(urls.length, 1);
+  assert.ok(urls[0].includes('tse_2330.tw%7Ctse_2317.tw') || urls[0].includes('tse_2330.tw|tse_2317.tw'));
+  assert.deepEqual(quotes['2330'], { price: 1090, date: '2026-09-12', isIntraday: true });
+  assert.deepEqual(quotes['2317'], { price: 105, date: '2026-09-12', isIntraday: true });
+});
+
+await testAsync('TwseRealtimeProvider.getQuotes retries only the unmatched stockIds on the OTC pass', async () => {
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (url.includes('tse_')) {
+      return { ok: true, json: async () => ({ msgArray: [{ c: '2330', z: '1090.00', y: '1080.00', d: '20260912' }] }) };
+    }
+    return { ok: true, json: async () => ({ msgArray: [{ c: '6488', z: '55.5', y: '55.0', d: '20260912' }] }) };
+  };
+  const quotes = await TwseRealtimeProvider.getQuotes(['2330', '6488']);
+  assert.equal(quotes['2330'].price, 1090);
+  assert.equal(quotes['6488'].price, 55.5);
+  assert.equal(urls.length, 2);
+  assert.ok(urls[0].includes('tse_2330.tw') && urls[0].includes('tse_6488.tw'));
+  assert.ok(urls[1].includes('otc_6488.tw') && !urls[1].includes('2330'));
+});
+
+await testAsync('getLiveQuotes falls back to Yahoo/FinMind per stock for anything TWSE\'s batch call missed', async () => {
+  globalThis.fetch = async (url) => {
+    if (url.includes('mis.twse.com.tw')) {
+      return { ok: true, json: async () => ({ msgArray: [{ c: '2330', z: '1090.00', y: '1080.00', d: '20260912' }] }) };
+    }
+    if (url.includes('allorigins.win')) {
+      return { ok: true, json: async () => ({ chart: { result: [{ meta: { regularMarketPrice: 55.5, regularMarketTime: 1757649600 } }] } }) };
+    }
+    return { ok: false };
+  };
+  const quotes = await getLiveQuotes(['2330', '6488']);
+  assert.equal(quotes['2330'].price, 1090);
+  assert.equal(quotes['6488'].price, 55.5);
 });
 
 await testAsync('YahooFinanceProvider.getQuote routes through the CORS proxy and reads regularMarketPrice', async () => {
