@@ -38,5 +38,19 @@ test('empty rows still produce a valid header-only table', () => {
   assert.match(xml, /<Data ss:Type="String">代號<\/Data>/);
 });
 
+test('an optional note is placed above the header row, merged across all columns', () => {
+  const xml = buildExcelXml('持股', ['代號', '股數'], [['2330', 1000]], '請分開分析每一列');
+  const noteIndex = xml.indexOf('請分開分析每一列');
+  const headerIndex = xml.indexOf('代號');
+  assert.ok(noteIndex > -1);
+  assert.ok(noteIndex < headerIndex); // note row comes before the header row
+  assert.match(xml, /ss:MergeAcross="1"/); // spans both columns (headers.length - 1)
+});
+
+test('omitting the note produces no note row at all', () => {
+  const xml = buildExcelXml('持股', ['代號'], [['2330']]);
+  assert.ok(!xml.includes('MergeAcross'));
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

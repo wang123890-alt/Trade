@@ -58,7 +58,8 @@ function render(container) {
       StockAiAnalysisRepository.get(p.stockId),
     ]);
     const today = new Date().toISOString().slice(0, 10);
-    downloadExcel(`持股_${today}.xls`, '持股', headers, rows);
+    const note = '這是我的持股清單，請針對「每一列」分別分析。回覆時每檔股票另起一段，且每段都要以該股票的「代號」開頭（例如：2330 台積電：分析內容…），不要把多檔股票的共同建議寫成不標代號的單一段落——這樣我才能把你的回覆自動分類貼回對應股票。';
+    downloadExcel(`持股_${today}.xls`, '持股', headers, rows, note);
   });
 
   container.querySelector('#toggle-ai-import').addEventListener('click', () => {
