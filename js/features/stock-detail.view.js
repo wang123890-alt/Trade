@@ -5,7 +5,7 @@ import { computeMA, computeRSI, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
-import { formatMoney, formatDate, formatTime, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, formatDateTime, pnlClass } from '../utils/format.js';
 
 const RSI_OVERBOUGHT = 70;
 const RSI_OVERSOLD = 30;
@@ -135,7 +135,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
         <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20</span>
         <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60</span>
       </div>
-      ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px;">${meta.source ? `${meta.source} · ` : ''}${formatTime(meta.fetchedAt)}更新</div>` : ''}
+      ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px;">${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新</div>` : ''}
     </div>
     ${renderKLineChart(bars, {
       maSeries: [

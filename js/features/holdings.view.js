@@ -1,6 +1,8 @@
 import { recompute } from './transactions.js';
-import { ManualPriceRepository } from '../data/storage.js';
+import { ManualPriceRepository, StockAiAnalysisRepository } from '../data/storage.js';
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
+import { classifyAiAnalysisText } from '../core/aiAnalysisImport.js';
+import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
@@ -31,12 +33,39 @@ function render(container) {
   }
 
   container.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:8px; flex-wrap:wrap;">
       <div style="font-size:20px; font-weight:700;">我的持股</div>
-      <button class="btn" id="refresh-all-prices">全部更新</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="export-excel">匯出Excel</button>
+        <button class="btn" id="toggle-ai-import">匯入AI解析</button>
+        <button class="btn" id="refresh-all-prices">全部更新</button>
+      </div>
     </div>
+    <div id="ai-import-panel" hidden></div>
     <div id="positions-list"></div>
   `;
+
+  container.querySelector('#export-excel').addEventListener('click', () => {
+    const headers = ['代號', '名稱', '股數', '成本均價', '市價', '未實現損益', '損益%', 'AI解析'];
+    const rows = positions.map((p) => [
+      p.stockId,
+      p.stockName,
+      p.totalQuantity,
+      Number(p.averageCost.toFixed(2)),
+      p.marketPrice ?? '',
+      p.unrealizedPnL ?? '',
+      p.unrealizedPnLPercent != null ? Number(p.unrealizedPnLPercent.toFixed(2)) : '',
+      StockAiAnalysisRepository.get(p.stockId),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    downloadExcel(`持股_${today}.xls`, '持股', headers, rows);
+  });
+
+  container.querySelector('#toggle-ai-import').addEventListener('click', () => {
+    const panel = container.querySelector('#ai-import-panel');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) renderAiImportPanel(panel, positions, container);
+  });
 
   container.querySelector('#refresh-all-prices').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -75,6 +104,7 @@ function render(container) {
   list.innerHTML = positions
     .map((p) => {
       const hasPrice = p.marketPrice != null;
+      const aiText = StockAiAnalysisRepository.get(p.stockId);
       return `
       <div class="card" data-stock-id="${p.stockId}" style="padding:10px 14px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
@@ -98,6 +128,18 @@ function render(container) {
                </div>`
             : `<div class="text-faint" style="font-size:12px;">尚未取得市價</div>`}
         </div>
+        <div style="margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">
+          <div data-action="toggle-ai" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <span class="text-faint" style="font-size:11.5px; font-weight:600;">AI解析${aiText ? '' : '（未填寫）'}</span>
+            <span class="text-faint" style="font-size:11px;">展開/編輯</span>
+          </div>
+          <div data-ai-body hidden style="margin-top:6px;">
+            <div class="form-field">
+              <textarea data-ai-input style="min-height:80px;">${escapeHtml(aiText)}</textarea>
+            </div>
+            <button class="btn btn-block" data-action="save-ai">儲存AI解析</button>
+          </div>
+        </div>
       </div>
     `;
     })
@@ -107,6 +149,24 @@ function render(container) {
     btn.addEventListener('click', () => {
       const cardEl = btn.closest('[data-stock-id]');
       navigate('detail', cardEl.getAttribute('data-stock-id'));
+    });
+  });
+
+  list.querySelectorAll('[data-action="toggle-ai"]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const body = row.parentElement.querySelector('[data-ai-body]');
+      body.hidden = !body.hidden;
+    });
+  });
+
+  list.querySelectorAll('[data-action="save-ai"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const cardEl = btn.closest('[data-stock-id]');
+      const stockId = cardEl.getAttribute('data-stock-id');
+      const text = cardEl.querySelector('[data-ai-input]').value;
+      btn.disabled = true;
+      await StockAiAnalysisRepository.set(stockId, text);
+      render(container);
     });
   });
 
@@ -149,6 +209,89 @@ function render(container) {
       render(container);
     });
   });
+}
+
+/** Paste-and-classify import: user pastes freeform AI analysis covering
+ * multiple stocks, we split it by which stock each line mentions, and show
+ * an editable preview per stock before writing anything. */
+function renderAiImportPanel(panel, positions, container) {
+  panel.innerHTML = `
+    <div class="card">
+      <div style="font-size:13.5px; font-weight:700; margin-bottom:8px;">貼上AI分析（會依股票代號/名稱自動分類）</div>
+      <div class="form-field">
+        <textarea id="ai-paste-input" style="min-height:140px;" placeholder="貼上涵蓋多檔股票的AI分析文字…"></textarea>
+      </div>
+      <button class="btn btn-primary" id="ai-classify-btn">分類並預覽</button>
+      <div id="ai-preview-area" style="margin-top:12px;"></div>
+    </div>
+  `;
+
+  panel.querySelector('#ai-classify-btn').addEventListener('click', () => {
+    const text = panel.querySelector('#ai-paste-input').value;
+    const stocks = positions.map((p) => ({ stockId: p.stockId, stockName: p.stockName }));
+    const { byStock, unmatched } = classifyAiAnalysisText(text, stocks);
+    renderAiPreview(panel, byStock, unmatched, positions, container);
+  });
+}
+
+function renderAiPreview(panel, byStock, unmatched, positions, container) {
+  const previewArea = panel.querySelector('#ai-preview-area');
+  const stockNameById = Object.fromEntries(positions.map((p) => [p.stockId, p.stockName]));
+  const matchedIds = Object.keys(byStock);
+
+  if (matchedIds.length === 0) {
+    previewArea.innerHTML = '<div class="empty-state">沒有比對到任何持股的股票代號或名稱，請確認貼上的文字有提到股票代號或全名</div>';
+    return;
+  }
+
+  previewArea.innerHTML = `
+    ${matchedIds
+      .map(
+        (stockId) => `
+      <div style="border-top:1px solid var(--border); padding:10px 0;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; margin-bottom:6px;">
+          <input type="checkbox" data-preview-include="${stockId}" checked>
+          ${stockNameById[stockId] || stockId} <span class="text-faint" style="font-weight:500;">${stockId}</span>
+        </label>
+        <textarea data-preview-text="${stockId}" style="min-height:70px;">${escapeHtml(byStock[stockId])}</textarea>
+      </div>
+    `
+      )
+      .join('')}
+    ${unmatched ? `
+      <div style="border-top:1px solid var(--border); padding:10px 0;">
+        <div class="text-faint" style="font-size:11.5px; margin-bottom:4px;">未比對到任何持股，不會寫入（僅供確認沒有漏掉重要內容）</div>
+        <div style="font-size:12px; white-space:pre-wrap; color:var(--text-dim);">${escapeHtml(unmatched)}</div>
+      </div>
+    ` : ''}
+    <button class="btn btn-primary btn-block" id="ai-confirm-import" style="margin-top:10px;">確認匯入</button>
+  `;
+
+  previewArea.querySelector('#ai-confirm-import').addEventListener('click', async () => {
+    const btn = previewArea.querySelector('#ai-confirm-import');
+    btn.disabled = true;
+    const today = new Date().toLocaleDateString('zh-TW');
+    const updates = {};
+    for (const stockId of matchedIds) {
+      const checkbox = previewArea.querySelector(`[data-preview-include="${stockId}"]`);
+      if (!checkbox.checked) continue;
+      const newText = previewArea.querySelector(`[data-preview-text="${stockId}"]`).value;
+      const existing = StockAiAnalysisRepository.get(stockId);
+      updates[stockId] = existing ? `${existing}\n\n---- ${today} ----\n${newText}` : newText;
+    }
+    if (Object.keys(updates).length === 0) {
+      btn.disabled = false;
+      return;
+    }
+    await StockAiAnalysisRepository.setMany(updates);
+    render(container);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
 }
 
 export { renderHoldingsView };

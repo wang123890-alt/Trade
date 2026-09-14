@@ -22,6 +22,7 @@ const DEFAULT_STATE = () => ({
   watchlist: [],
   manualPrices: {},
   stockNotes: {},
+  stockAiAnalysis: {},
 });
 
 let state = DEFAULT_STATE();
@@ -31,7 +32,7 @@ let remoteAvailable = false; // true once a successful GitHub read/write has hap
 function readCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_STATE();
+    return raw ? { ...DEFAULT_STATE(), ...JSON.parse(raw) } : DEFAULT_STATE();
   } catch {
     return DEFAULT_STATE();
   }
@@ -54,7 +55,7 @@ async function initStore() {
 
   try {
     const { content, sha } = await githubStore.fetchRemote();
-    state = content || DEFAULT_STATE();
+    state = content ? { ...DEFAULT_STATE(), ...content } : DEFAULT_STATE();
     remoteSha = sha;
     remoteAvailable = true;
     writeCache();
@@ -207,6 +208,31 @@ const StockNotesRepository = {
   },
 };
 
+// Free-text AI-generated analysis per stock, keyed by stockId. Separate from
+// StockNotesRepository (append-only timeline of the user's own notes) —
+// this is a single overwritable field meant to hold whatever an outside AI
+// tool said about the stock, either typed in directly or distributed here
+// by the paste-and-classify import on the holdings page.
+const StockAiAnalysisRepository = {
+  getAll() {
+    return state.stockAiAnalysis;
+  },
+  get(stockId) {
+    return state.stockAiAnalysis[stockId] || '';
+  },
+  async set(stockId, text) {
+    state.stockAiAnalysis[stockId] = text;
+    return persist();
+  },
+  /** Update many at once — see TransactionRepository.saveMany. Used by the
+   * paste-and-classify import so distributing across N stocks costs one
+   * GitHub commit, not N. */
+  async setMany(textByStockId) {
+    Object.assign(state.stockAiAnalysis, textByStockId);
+    return persist();
+  },
+};
+
 export {
   initStore,
   refreshFromRemote,
@@ -215,4 +241,5 @@ export {
   WatchlistRepository,
   ManualPriceRepository,
   StockNotesRepository,
+  StockAiAnalysisRepository,
 };
