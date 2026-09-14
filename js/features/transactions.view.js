@@ -2,6 +2,7 @@ import { recompute, addTransaction, deleteTransaction } from './transactions.js'
 import { addWatchItem } from './watchlist.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { formatMoney, formatDate, pnlClass } from '../utils/format.js';
+import { navigate } from '../router.js';
 
 // Taiwan brokerage standard rates: transaction fee ~0.1425% on both BUY/SELL,
 // transaction tax 0.3% on SELL only (no tax on BUY).
@@ -227,7 +228,10 @@ function buildDisplayRows(transactions, matches, openLots, errors, manualPrices)
  * caller wraps `right` together with the delete button in one flex group,
  * matching the original single-transaction row layout. */
 function renderRow(row) {
-  const header = `${row.stockName} <span class="text-faint" style="font-weight:500;">${row.stockId}</span>`;
+  const header = `
+    <button class="stock-link" data-action="view-detail" data-stock-id="${row.stockId}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; font:inherit; text-decoration:underline; text-decoration-color:var(--border);">${row.stockName}</button>
+    <span class="text-faint" style="font-weight:500;">${row.stockId}</span>
+  `;
 
   if (row.kind === 'sold') {
     return {
@@ -305,6 +309,12 @@ function renderList(container) {
   `;
     })
     .join('');
+
+  listEl.querySelectorAll('[data-action="view-detail"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      navigate('detail', btn.getAttribute('data-stock-id'));
+    });
+  });
 
   listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
     btn.addEventListener('click', async () => {
