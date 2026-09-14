@@ -1638,6 +1638,20 @@
       "strategy": "",
       "reason": "",
       "note": "現股買進"
+    },
+    {
+      "id": "yt_20260630_2886_transfer",
+      "stockId": "2886",
+      "stockName": "兆豐金",
+      "type": "BUY",
+      "dateTime": "2026-06-30",
+      "price": 0,
+      "quantity": 11,
+      "fee": 0,
+      "tax": 0,
+      "strategy": "",
+      "reason": "",
+      "note": "登錄存券撥轉（元大帳戶截圖核對，非一般買進）"
     }
   ],
   "watchlist": [
