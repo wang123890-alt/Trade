@@ -1,7 +1,7 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { computeRealizedSummary, computeUnrealizedSummary, groupByStock, groupByStrategy } from '../core/statistics.js';
-import { attachLossReviews, summarizeLossPatterns } from './review.js';
+import { attachLossReviews, summarizeLossPatterns, computeBuyFacts } from './review.js';
 import { formatMoney, formatDate, formatPercent, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
 
@@ -32,8 +32,10 @@ function renderOverviewView(container) {
   const strategySummariesByName = Object.fromEntries(
     groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s])
   );
-  const reviewedMatches = attachLossReviews(matches, transactionsById, strategySummariesByName);
+  const buyFacts = computeBuyFacts(transactions, matches);
+  const reviewedMatches = attachLossReviews(matches, transactionsById, strategySummariesByName, { buyFacts });
   const lossPatterns = summarizeLossPatterns(reviewedMatches);
+  const lossCount = matches.filter((m) => m.realizedPnL < 0).length;
 
   container.innerHTML = `
     <div style="font-size:20px; font-weight:700; margin-bottom:16px;">市場總覽</div>
@@ -106,7 +108,10 @@ function renderOverviewView(container) {
 
     ${lossPatterns.length > 0 ? `
     <div class="card">
-      <div style="font-size:15px; font-weight:700; margin-bottom:10px;">常見虧損原因統計</div>
+      <div style="font-size:15px; font-weight:700; margin-bottom:2px;">常見虧損原因統計</div>
+      <div class="text-faint" style="font-size:11px; margin-bottom:10px;">
+        共 ${lossCount} 筆虧損 · 一筆可能同時命中多個原因，所以各項次數相加會大於總筆數
+      </div>
       ${lossPatterns
         .map(
           (p, i) => `
