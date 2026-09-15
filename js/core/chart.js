@@ -203,20 +203,11 @@ function renderKLineChart(bars, {
     }).join('');
   }
 
-  // Indicator sub-panels, stacked in a fixed order (RSI, then MACD, then
-  // DMI) below the price/volume chart, each in its own vertical band.
+  // Indicator sub-panels, stacked in a fixed order (MACD, then DMI, then
+  // RSI last/bottom) below the price/volume chart, each in its own
+  // vertical band.
   let subPanelSvg = '';
   let subPanelCursor = priceBottom + subPanelGap;
-  if (rsi) {
-    const top = subPanelCursor;
-    const bottom = top + subPanelHeight;
-    const { valueToY, svg: frame } = renderSubPanel({
-      top, bottom, label: 'RSI(14)', minValue: 0, maxValue: 100, refLines: [30, 50, 70], xAt, width, padding,
-    });
-    const line = renderLineSeries(rsi, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--accent)"');
-    subPanelSvg += frame + line;
-    subPanelCursor = bottom + subPanelGap;
-  }
   if (macd) {
     const top = subPanelCursor;
     const bottom = top + subPanelHeight;
@@ -249,6 +240,16 @@ function renderKLineChart(bars, {
     const minusDISvg = renderLineSeries(dmi.minusDI, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--green)"');
     const adxSvg = renderLineSeries(dmi.adx, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--text-faint)"');
     subPanelSvg += frame + plusDISvg + minusDISvg + adxSvg;
+    subPanelCursor = bottom + subPanelGap;
+  }
+  if (rsi) {
+    const top = subPanelCursor;
+    const bottom = top + subPanelHeight;
+    const { valueToY, svg: frame } = renderSubPanel({
+      top, bottom, label: 'RSI(14)', minValue: 0, maxValue: 100, refLines: [30, 50, 70], xAt, width, padding,
+    });
+    const line = renderLineSeries(rsi, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--accent)"');
+    subPanelSvg += frame + line;
     subPanelCursor = bottom + subPanelGap;
   }
 
