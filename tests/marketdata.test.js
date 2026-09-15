@@ -67,18 +67,32 @@ await testAsync('TwseRealtimeProvider.getQuote returns the live traded price whe
     return { ok: true, text: async () => JSON.stringify({ msgArray: [{ z: '1090.00', y: '1080.00', d: '20260912' }] }) };
   };
   const quote = await TwseRealtimeProvider.getQuote('2330');
-  assert.deepEqual(quote, { price: 1090, date: '2026-09-12', isIntraday: true, source: 'TWSE' });
+  assert.deepEqual(quote, { price: 1090, date: '2026-09-12', isIntraday: true, source: '證交所' });
   // Both market-prefix guesses go in ONE request — not one request per guess.
   assert.equal(urls.length, 1);
   assert.ok(urls[0].includes('tse_2330.tw') && urls[0].includes('otc_2330.tw'));
 });
 
-await testAsync('TwseRealtimeProvider.getQuote falls back to previous close when there is no trade yet ("z" is "-")', async () => {
+await testAsync('TwseRealtimeProvider.getQuote reads the nested last trade when "z" is blank mid-session', async () => {
+  // Measured 2026-09-15 12:03: 2454 came back with z '-' while it was plainly
+  // trading (o/h/l/v all populated), and only trade.z carried the real last
+  // price. Taking 昨收 here would have shown 4560 for a stock trading at 4495.
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => JSON.stringify({
+      msgArray: [{ z: '-', y: '4560.0000', o: '4505.0000', trade: { t: '12:01:56', z: '4495.0000' }, d: '20260915' }],
+    }),
+  });
+  const quote = await TwseRealtimeProvider.getQuote('2454');
+  assert.deepEqual(quote, { price: 4495, date: '2026-09-15', isIntraday: true, source: '證交所' });
+});
+
+await testAsync('TwseRealtimeProvider.getQuote falls back to previous close only when nothing has traded at all', async () => {
   globalThis.fetch = async () => ({
     ok: true, text: async () => JSON.stringify({ msgArray: [{ z: '-', y: '1080.00', d: '20260912' }] }),
   });
   const quote = await TwseRealtimeProvider.getQuote('2330');
-  assert.deepEqual(quote, { price: 1080, date: '2026-09-12', isIntraday: false, source: 'TWSE昨收' });
+  assert.deepEqual(quote, { price: 1080, date: '2026-09-12', isIntraday: false, source: '證交所昨收' });
 });
 
 await testAsync('TwseRealtimeProvider.getQuote reads whichever prefix actually appears in the single response', async () => {
@@ -113,7 +127,7 @@ await testAsync('TwseRealtimeProvider.getQuote falls back to a CORS proxy when t
     return { ok: true, text: async () => JSON.stringify({ msgArray: [{ z: '1090.00', y: '1080.00', d: '20260912' }] }) };
   };
   const quote = await TwseRealtimeProvider.getQuote('2330');
-  assert.deepEqual(quote, { price: 1090, date: '2026-09-12', isIntraday: true, source: 'TWSE' });
+  assert.deepEqual(quote, { price: 1090, date: '2026-09-12', isIntraday: true, source: '證交所' });
   assert.ok(urls.some((u) => u.includes('allorigins.win')), 'expected a proxied retry after the direct call was blocked');
 });
 
@@ -135,8 +149,8 @@ await testAsync('TwseRealtimeProvider.getQuotes fetches all stockIds (and both m
   assert.equal(urls.length, 1);
   assert.ok(urls[0].includes('tse_2330.tw') && urls[0].includes('otc_2330.tw'));
   assert.ok(urls[0].includes('tse_2317.tw') && urls[0].includes('otc_2317.tw'));
-  assert.deepEqual(quotes['2330'], { price: 1090, date: '2026-09-12', isIntraday: true, source: 'TWSE' });
-  assert.deepEqual(quotes['2317'], { price: 105, date: '2026-09-12', isIntraday: true, source: 'TWSE' });
+  assert.deepEqual(quotes['2330'], { price: 1090, date: '2026-09-12', isIntraday: true, source: '證交所' });
+  assert.deepEqual(quotes['2317'], { price: 105, date: '2026-09-12', isIntraday: true, source: '證交所' });
 });
 
 await testAsync('TwseRealtimeProvider.getQuotes omits a stockId that matched on neither market guess', async () => {
@@ -237,19 +251,74 @@ await testAsync('YahooFinanceProvider.getKLine throws MarketDataError (matching 
   await assert.rejects(() => YahooFinanceProvider.getKLine('2330'), MarketDataError);
 });
 
-await testAsync('getLiveQuote never touches TWSE — a browser cannot read it, so it is out of the chain', async () => {
-  const urls = [];
+await testAsync('getLiveQuote prefers the exchange\'s own price over Yahoo when TWSE answers', async () => {
   globalThis.fetch = async (url) => {
-    urls.push(url);
+    const target = decodeURIComponent(url);
+    if (target.includes('mis.twse.com.tw')) {
+      return { ok: true, text: async () => JSON.stringify({ msgArray: [{ c: '2330', d: '20260915', z: '2385.0000', y: '2380.0000' }] }) };
+    }
     if (url.includes('api.allorigins.win') || url.includes('r.jina.ai')) {
-      return { ok: true, text: async () => JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 1095 } }] } }) };
+      return { ok: true, text: async () => JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 2390 } }] } }) };
     }
     return { ok: false };
   };
   const quote = await getLiveQuote('2330');
-  assert.equal(quote.price, 1095);
+  assert.equal(quote.price, 2385); // the exchange's last trade, not Yahoo's 2390
+  assert.equal(quote.source, '證交所');
+});
+
+await testAsync('getLiveQuote takes Yahoo\'s live price over TWSE\'s pre-open 昨收, but keeps 昨收 if Yahoo has nothing', async () => {
+  // Before the open TWSE answers with yesterday's close. That's a real number
+  // but not a live one, so it must not outrank Yahoo's intraday price.
+  let yahooWorks = true;
+  globalThis.fetch = async (url) => {
+    const target = decodeURIComponent(url);
+    if (target.includes('mis.twse.com.tw')) {
+      return { ok: true, text: async () => JSON.stringify({ msgArray: [{ c: '2330', d: '20260915', z: '-', y: '2380.0000' }] }) };
+    }
+    if (url.includes('api.allorigins.win') || url.includes('r.jina.ai')) {
+      if (!yahooWorks) return { ok: false };
+      return { ok: true, text: async () => JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 2390 } }] } }) };
+    }
+    return { ok: false };
+  };
+  const withYahoo = await getLiveQuote('2330');
+  assert.equal(withYahoo.price, 2390);
+  assert.equal(withYahoo.source, '雅虎');
+
+  yahooWorks = false;
+  const withoutYahoo = await getLiveQuote('2330');
+  assert.equal(withoutYahoo.price, 2380);
+  assert.equal(withoutYahoo.source, '證交所昨收');
+});
+
+await testAsync('getLiveQuote starts Yahoo alongside TWSE, so a blocked TWSE costs no extra waiting', async () => {
+  // TWSE's WAF refuses relay IPs on and off (0/5 on 2026-09-14, 5/5 on
+  // 2026-09-15). When it refuses, Yahoo's request must already be in flight
+  // — awaiting TWSE first is what once cost ~9s of dead time per update.
+  let twseStartedAt = null;
+  let yahooStartedAt = null;
+  let twseSettledAt = null;
+  globalThis.fetch = async (url) => {
+    const target = decodeURIComponent(url);
+    if (target.includes('mis.twse.com.tw')) {
+      twseStartedAt ??= Date.now();
+      await new Promise((resolve) => setTimeout(resolve, 30)); // slow refusal
+      twseSettledAt = Date.now();
+      return { ok: false, status: 401 }; // "bad IP reputation"
+    }
+    if (url.includes('api.allorigins.win') || url.includes('r.jina.ai')) {
+      yahooStartedAt ??= Date.now();
+      return { ok: true, text: async () => JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 2390 } }] } }) };
+    }
+    return { ok: false };
+  };
+  const quote = await getLiveQuote('2330');
+  assert.equal(quote.price, 2390);
   assert.equal(quote.source, '雅虎');
-  assert.ok(!urls.some((u) => u.includes('mis.twse.com.tw')), `expected no TWSE request, got ${JSON.stringify(urls)}`);
+  assert.ok(twseStartedAt != null, 'expected TWSE to be attempted first');
+  assert.ok(yahooStartedAt != null && yahooStartedAt < twseSettledAt,
+    'expected Yahoo to be in flight before TWSE finished failing, not started after it');
 });
 
 await testAsync('getLiveQuote reads a relay that wraps its JSON in surrounding text (r.jina.ai)', async () => {
