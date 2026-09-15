@@ -3,7 +3,7 @@ import { StockNotesRepository } from '../data/storage.js';
 import { FinMindProvider, YahooFinanceProvider, CsvProvider, MarketDataError } from '../data/marketdata.js';
 import { computeMA, computeRSI, computeMACD, computeDMI, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
-import { attachLossReviews, summarizeLossPatterns } from './review.js';
+import { attachLossReviews, computeBuyFacts } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
 import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
 
@@ -262,7 +262,11 @@ function renderStockLossReview(container, stockId, matches, transactions) {
   const strategySummariesByName = Object.fromEntries(
     groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s])
   );
-  const reviewed = attachLossReviews(losses, transactionsById, strategySummariesByName);
+  // Facts are derived from the WHOLE history (portfolio weight and
+  // averaging-down only mean anything in the context of every other
+  // position), even though only this stock's losses get reviewed here.
+  const buyFacts = computeBuyFacts(transactions, matches);
+  const reviewed = attachLossReviews(losses, transactionsById, strategySummariesByName, { buyFacts });
 
   area.innerHTML = `
     <div class="card">
