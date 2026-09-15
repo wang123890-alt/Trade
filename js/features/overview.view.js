@@ -2,7 +2,7 @@ import { recompute } from './transactions.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { computeRealizedSummary, computeUnrealizedSummary, groupByStock, groupByStrategy } from '../core/statistics.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
-import { formatMoney, formatDate, formatPercent, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, formatPercent, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
 
 function renderOverviewView(container) {
@@ -121,9 +121,9 @@ function renderOverviewView(container) {
                 const buyTx = transactionsById[m.buyTransactionId];
                 const stockName = buyTx?.stockName || m.stockId;
                 return `
-                <div class="tx-row" data-action="view-example" data-stock-id="${m.stockId}" style="cursor:pointer; padding-left:10px; border-left:2px solid var(--border);">
+                <div class="tx-row" data-action="view-example" data-stock-id="${escapeHtml(m.stockId)}" style="cursor:pointer; padding-left:10px; border-left:2px solid var(--border);">
                   <div>
-                    <div style="font-size:12.5px; font-weight:600;">${stockName} <span class="text-faint" style="font-weight:500;">${m.stockId}</span></div>
+                    <div style="font-size:12.5px; font-weight:600;">${escapeHtml(stockName)} <span class="text-faint" style="font-weight:500;">${escapeHtml(m.stockId)}</span></div>
                     <div class="text-faint" style="font-size:11px; margin-top:2px;">${formatDate(m.closedAt)} · ${m.buyPrice} → ${m.sellPrice}</div>
                   </div>
                   <div class="${pnlClass(m.realizedPnL)}" style="font-size:12.5px; font-weight:600;">${formatMoney(m.realizedPnL)}</div>
@@ -183,9 +183,9 @@ function renderStockCategory(title, tagColor, kind, items) {
         ${items
           .map(
             (it) => `
-          <div class="tx-row" data-action="view-stock" data-stock-id="${it.stockId}" style="cursor:pointer; padding-left:10px; border-left:2px solid var(--border);">
+          <div class="tx-row" data-action="view-stock" data-stock-id="${escapeHtml(it.stockId)}" style="cursor:pointer; padding-left:10px; border-left:2px solid var(--border);">
             <div>
-              <div style="font-size:12.5px; font-weight:600;">${it.stockName} <span class="text-faint" style="font-weight:500;">${it.stockId}</span></div>
+              <div style="font-size:12.5px; font-weight:600;">${escapeHtml(it.stockName)} <span class="text-faint" style="font-weight:500;">${escapeHtml(it.stockId)}</span></div>
               <div class="text-faint" style="font-size:11px; margin-top:2px;">${it.detail}</div>
             </div>
             <div class="${it.amountClass}" style="font-size:12.5px; font-weight:600;">${it.amount}</div>

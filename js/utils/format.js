@@ -36,10 +36,27 @@ function formatDateTime(iso) {
   });
 }
 
+// Every stock name/id and free-text tag (strategy, note, AI analysis...) is
+// user-entered and ends up interpolated into innerHTML across the views —
+// escaping it here once, and importing this everywhere, is what keeps a
+// stock named e.g. `<img src=x onerror=...>` (typed directly, or arriving
+// via a merged backup-file import) from executing instead of just
+// displaying. Escapes quotes too so the same helper is also safe to use
+// inside a double-quoted HTML attribute (e.g. data-stock-id="${...}"), not
+// only inside element text content.
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function pnlClass(n) {
   if (n == null) return 'text-dim';
   // Taiwan convention: red = 上漲/獲利, green = 下跌/虧損, 平盤（0）維持預設白字。
   return n > 0 ? 'text-red' : n < 0 ? 'text-green' : '';
 }
 
-export { formatMoney, formatPercent, formatDate, formatTime, formatDateTime, pnlClass };
+export { formatMoney, formatPercent, formatDate, formatTime, formatDateTime, pnlClass, escapeHtml };

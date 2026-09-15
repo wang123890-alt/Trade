@@ -3,7 +3,7 @@ import { ManualPriceRepository, StockAiAnalysisRepository } from '../data/storag
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
 import { classifyAiAnalysisText, appendAiAnalysis } from '../core/aiAnalysisImport.js';
 import { downloadExcel } from '../utils/exportExcel.js';
-import { formatMoney, formatPercent, formatTime, pnlClass } from '../utils/format.js';
+import { formatMoney, formatPercent, formatTime, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
 
 // Where each displayed price came from ("雅虎股市" for a live intraday quote,
@@ -107,11 +107,11 @@ function render(container) {
       const hasPrice = p.marketPrice != null;
       const aiText = StockAiAnalysisRepository.get(p.stockId);
       return `
-      <div class="card" data-stock-id="${p.stockId}" style="padding:10px 14px;">
+      <div class="card" data-stock-id="${escapeHtml(p.stockId)}" style="padding:10px 14px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <button class="stock-link" data-action="view-detail" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; min-width:0; overflow:hidden;">
-            <div style="font-size:14px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.stockName}
-              <span class="text-faint" style="font-weight:500; font-size:12px;">${p.stockId}</span>
+            <div style="font-size:14px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.stockName)}
+              <span class="text-faint" style="font-weight:500; font-size:12px;">${escapeHtml(p.stockId)}</span>
             </div>
           </button>
           <button class="btn" data-action="save-price" style="flex:0 0 auto;">更新</button>
@@ -255,10 +255,10 @@ function renderAiPreview(panel, byStock, unmatched, positions, container) {
         (stockId) => `
       <div style="border-top:1px solid var(--border); padding:10px 0;">
         <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; margin-bottom:6px;">
-          <input type="checkbox" data-preview-include="${stockId}" checked>
-          ${stockNameById[stockId] || stockId} <span class="text-faint" style="font-weight:500;">${stockId}</span>
+          <input type="checkbox" data-preview-include="${escapeHtml(stockId)}" checked>
+          ${escapeHtml(stockNameById[stockId] || stockId)} <span class="text-faint" style="font-weight:500;">${escapeHtml(stockId)}</span>
         </label>
-        <textarea data-preview-text="${stockId}" style="min-height:70px;">${escapeHtml(byStock[stockId])}</textarea>
+        <textarea data-preview-text="${escapeHtml(stockId)}" style="min-height:70px;">${escapeHtml(byStock[stockId])}</textarea>
       </div>
     `
       )
@@ -291,12 +291,6 @@ function renderAiPreview(panel, byStock, unmatched, positions, container) {
     await StockAiAnalysisRepository.setMany(updates);
     render(container);
   });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
 }
 
 export { renderHoldingsView };

@@ -5,7 +5,7 @@ import { computeMA, computeRSI, computeMACD, computeDMI, detectMACross } from '.
 import { renderKLineChart } from '../core/chart.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
-import { formatMoney, formatDate, formatDateTime, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
 
 const RSI_OVERBOUGHT = 70;
 const RSI_OVERSOLD = 30;
@@ -26,7 +26,7 @@ async function renderStockDetailView(container, stockId) {
       <button class="icon-btn" id="back-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
       </button>
-      <div style="font-size:19px; font-weight:700;">${stockName} <span class="text-faint" style="font-weight:500; font-size:13px;">${stockId}</span></div>
+      <div style="font-size:19px; font-weight:700;">${escapeHtml(stockName)} <span class="text-faint" style="font-weight:500; font-size:13px;">${escapeHtml(stockId)}</span></div>
     </div>
     ${lastTx ? `<div class="text-faint" style="font-size:12px; margin:0 0 12px 42px;">最後交易日 ${formatDate(lastTx.dateTime)} · 成交價 ${lastTx.price}</div>` : ''}
     <div id="chart-area" class="card"><div class="empty-state">載入K線資料中…</div></div>
@@ -251,10 +251,10 @@ function renderStockLossReview(container, stockId, matches, transactions) {
             <div class="${pnlClass(m.realizedPnL)}" style="font-size:13px; font-weight:600;">${formatMoney(m.realizedPnL)}</div>
           </div>
           <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-            ${m.review.triggers.map((t) => `<span class="tag tag-yellow">${t}</span>`).join('')}
+            ${m.review.triggers.map((t) => `<span class="tag tag-yellow">${escapeHtml(t)}</span>`).join('')}
           </div>
           <div style="margin-top:6px; font-size:12px; color:var(--text-dim); line-height:1.6;">
-            ${m.review.suggestions.map((s) => `・${s}`).join('<br>')}
+            ${m.review.suggestions.map((s) => `・${escapeHtml(s)}`).join('<br>')}
           </div>
         </div>
       `
@@ -262,12 +262,6 @@ function renderStockLossReview(container, stockId, matches, transactions) {
         .join('')}
     </div>
   `;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 export { renderStockDetailView };
