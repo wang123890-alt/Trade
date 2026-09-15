@@ -137,6 +137,28 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   if (dmiCross === 'death') signalLines.push('DMI：+DI下穿-DI，趨勢轉空');
   if (lastADX != null && lastADX >= 25) signalLines.push(`ADX 為 ${lastADX.toFixed(0)}，目前趨勢力道${lastADX >= 40 ? '很強' : '偏強'}`);
 
+  // Which candle is currently tap-selected (shows a vertical marker line on
+  // the chart) — kept in this closure, not on the DOM, so a re-render for a
+  // new selection only needs to rebuild the SVG itself, not the whole
+  // chartArea (legend tags and signal text above/below stay untouched).
+  let selectedIndex = null;
+
+  function buildChartSvg() {
+    return renderKLineChart(bars, {
+      maSeries: [
+        { label: 'MA5', color: 'var(--accent)', values: ma5 },
+        { label: 'MA10', color: '#fbbf24', values: ma10 },
+        { label: 'MA20', color: '#f0abfc', values: ma20 },
+        { label: 'MA60', color: 'var(--text-faint)', values: ma60 },
+      ],
+      markers,
+      rsi,
+      macd,
+      dmi,
+      selectedIndex,
+    });
+  }
+
   chartArea.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -150,18 +172,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
       </div>
       ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px;">${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新</div>` : ''}
     </div>
-    ${renderKLineChart(bars, {
-      maSeries: [
-        { label: 'MA5', color: 'var(--accent)', values: ma5 },
-        { label: 'MA10', color: '#fbbf24', values: ma10 },
-        { label: 'MA20', color: '#f0abfc', values: ma20 },
-        { label: 'MA60', color: 'var(--text-faint)', values: ma60 },
-      ],
-      markers,
-      rsi,
-      macd,
-      dmi,
-    })}
+    <div id="kline-svg-wrap">${buildChartSvg()}</div>
     <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">訊號說明</div>
       ${signalLines.length > 0
@@ -169,6 +180,20 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
         : '<div class="text-faint" style="font-size:12.5px;">目前沒有明顯的均線交叉或RSI極端訊號</div>'}
     </div>
   `;
+
+  // Tap a candle to mark it with a vertical line (see renderKLineChart's
+  // hit targets); tapping the same one again clears it. Delegated on the
+  // wrap div itself since only its innerHTML gets replaced per selection —
+  // a listener attached directly to the <svg> would be discarded along with
+  // the old markup on every re-render.
+  const svgWrap = chartArea.querySelector('#kline-svg-wrap');
+  svgWrap.addEventListener('click', (e) => {
+    const hit = e.target.closest('[data-index]');
+    if (!hit) return;
+    const idx = Number(hit.getAttribute('data-index'));
+    selectedIndex = selectedIndex === idx ? null : idx;
+    svgWrap.innerHTML = buildChartSvg();
+  });
 }
 
 function renderNotes(container, stockId) {
