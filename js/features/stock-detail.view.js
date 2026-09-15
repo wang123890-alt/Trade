@@ -1,8 +1,9 @@
 import { recompute } from './transactions.js';
 import { StockNotesRepository } from '../data/storage.js';
 import { FinMindProvider, YahooFinanceProvider, CsvProvider, MarketDataError } from '../data/marketdata.js';
-import { computeMA, computeRSI, computeMACD, computeDMI, detectMACross } from '../core/indicators.js';
+import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
+import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
 import { attachLossReviews, computeBuyFacts } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
 import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
@@ -103,6 +104,9 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const rsi = computeRSI(bars, 14);
   const macd = computeMACD(bars);
   const dmi = computeDMI(bars);
+  const atr = computeATR(bars, 14);
+  const tradeLevels = computeTradeLevels(bars, { ma5, ma20, ma60, atr, adx: dmi.adx });
+  const chartLevels = levelsForChart(tradeLevels);
 
   const lastIndex = bars.length - 1;
   const cross = detectMACross(ma5, ma20, lastIndex);
@@ -156,6 +160,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
       macd,
       dmi,
       selectedIndex,
+      levels: chartLevels,
     });
   }
 
@@ -173,6 +178,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
       ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px;">${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新</div>` : ''}
     </div>
     <div id="kline-svg-wrap">${buildChartSvg()}</div>
+    ${renderTradeLevels(tradeLevels)}
     <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">訊號說明</div>
       ${signalLines.length > 0
@@ -194,6 +200,52 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
     selectedIndex = selectedIndex === idx ? null : idx;
     svgWrap.innerHTML = buildChartSvg();
   });
+}
+
+/** The 參考價位 block. Every row shows the level AND the `basis` that
+ * produced it, because a bare number invites being read as a call. The
+ * heading and footnote say plainly that these are levels computed off the
+ * chart, not a recommendation to act. */
+function renderTradeLevels(levels) {
+  if (!levels) {
+    return `
+      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">參考價位</div>
+        <div class="text-faint" style="font-size:12.5px;">K線資料不足30根，無法推算支撐壓力</div>
+      </div>`;
+  }
+
+  const row = (label, value, basis, valueClass = '') => `
+    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:5px 0; border-bottom:1px solid var(--border);">
+      <div style="font-size:12.5px; min-width:64px;">${label}</div>
+      <div style="flex:1; text-align:right;">
+        <div class="${valueClass}" style="font-size:13px; font-weight:700;">${value}</div>
+        ${basis ? `<div class="text-faint" style="font-size:10.5px; margin-top:1px;">${basis}</div>` : ''}
+      </div>
+    </div>`;
+
+  const rows = [
+    row('目前狀態', `${levels.price}`, `${levels.trendLabel}${levels.adx != null ? ` · ADX ${levels.adx}` : ''}${levels.atr != null ? ` · ATR ${levels.atr}` : ''}`),
+    levels.resistance ? row('最近壓力', `${levels.resistance.price}`, `前波高點 ${levels.resistance.date.slice(5).replace('-', '/')}`) : '',
+    levels.support ? row('最近支撐', `${levels.support.price}`, `前波低點 ${levels.support.date.slice(5).replace('-', '/')}`) : '',
+    levels.entry
+      ? row('參考進場區', `${levels.entry.low} ~ ${levels.entry.high}`, levels.entry.basis)
+      : row('參考進場區', '—', levels.trend === 'down' ? '空頭排列，此處不推算進場區' : '無明確依據'),
+    row('參考停損', levels.stop.price != null ? `${levels.stop.price}` : '—', levels.stop.basis, 'text-green'),
+    levels.target ? row('參考目標', `${levels.target.price}`, levels.target.basis, 'text-red') : '',
+    levels.riskReward != null
+      ? row('風險報酬比', `1 : ${levels.riskReward}`, levels.riskReward >= 2 ? '達到常見的 1:2 門檻' : '低於常見的 1:2 門檻')
+      : '',
+  ].join('');
+
+  return `
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">參考價位</div>
+      <div class="text-faint" style="font-size:10.5px; margin-bottom:6px;">
+        由K線與指標推算的價位，每一項都附上依據；這是計算結果，不是進出場建議
+      </div>
+      ${rows}
+    </div>`;
 }
 
 function renderNotes(container, stockId) {

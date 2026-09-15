@@ -96,6 +96,42 @@ function computeMACD(bars, { fastPeriod = 12, slowPeriod = 26, signalPeriod = 9 
   return { macdLine, signalLine, histogram };
 }
 
+/** True Range per bar, shared by DMI and ATR. Index 0 is 0 rather than null
+ * (there's no previous close to measure against); every caller starts its
+ * loops at 1, so the placeholder is never summed. */
+function trueRangeSeries(bars) {
+  const tr = new Array(bars.length).fill(0);
+  for (let i = 1; i < bars.length; i++) {
+    tr[i] = Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - bars[i - 1].close),
+      Math.abs(bars[i].low - bars[i - 1].close)
+    );
+  }
+  return tr;
+}
+
+/** Wilder's ATR (Average True Range), period `n`. Same null-padding as the
+ * others. Used to size a stop by the stock's own recent volatility instead
+ * of a flat percentage — a fixed 5% stop is loose on a quiet large cap and
+ * tight enough on a volatile small cap to be hit by ordinary noise. */
+function computeATR(bars, n = 14) {
+  const result = new Array(bars.length).fill(null);
+  if (bars.length < n + 1) return result;
+  const tr = trueRangeSeries(bars);
+
+  let atr = 0;
+  for (let i = 1; i <= n; i++) atr += tr[i];
+  atr /= n;
+  result[n] = atr;
+
+  for (let i = n + 1; i < bars.length; i++) {
+    atr = (atr * (n - 1) + tr[i]) / n;
+    result[i] = atr;
+  }
+  return result;
+}
+
 /** Wilder's DMI: +DI/-DI (period `n`, default 14) and ADX (the Wilder-
  * smoothed average of DX, itself starting `n` periods after +DI/-DI do).
  * Returns { plusDI, minusDI, adx }, each null-padded to bars.length. */
@@ -106,7 +142,7 @@ function computeDMI(bars, n = 14) {
   const adx = new Array(len).fill(null);
   if (len < n + 1) return { plusDI, minusDI, adx };
 
-  const trueRanges = new Array(len).fill(0);
+  const trueRanges = trueRangeSeries(bars);
   const plusDMs = new Array(len).fill(0);
   const minusDMs = new Array(len).fill(0);
   for (let i = 1; i < len; i++) {
@@ -114,11 +150,6 @@ function computeDMI(bars, n = 14) {
     const lowDiff = bars[i - 1].low - bars[i].low;
     plusDMs[i] = highDiff > lowDiff && highDiff > 0 ? highDiff : 0;
     minusDMs[i] = lowDiff > highDiff && lowDiff > 0 ? lowDiff : 0;
-    trueRanges[i] = Math.max(
-      bars[i].high - bars[i].low,
-      Math.abs(bars[i].high - bars[i - 1].close),
-      Math.abs(bars[i].low - bars[i - 1].close)
-    );
   }
 
   let smoothTR = 0;
@@ -184,4 +215,4 @@ function detectMACross(shortMA, longMA, i) {
   return null;
 }
 
-export { computeMA, computeRSI, computeMACD, computeDMI, detectMACross };
+export { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross };
