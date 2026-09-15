@@ -383,11 +383,14 @@ const YahooFinanceProvider = {
 //
 // Yahoo stays as the next link, not because the exchange's data can fail
 // (if the exchange has nothing, nobody downstream has anything either) but
-// because our ACCESS to it can: TWSE's WAF refuses datacenter/relay IPs on
-// and off — via r.jina.ai 0/5 on 2026-09-14 (HTTP 401 "bad IP reputation"),
-// 5/5 on 2026-09-15. On a day it refuses us, the exchange itself is fine and
-// Yahoo still has the numbers, so the fallback is about reaching the data,
-// not about doubting it.
+// because the RELAY we reach it through can. The route itself is stable and
+// explainable: TWSE's WAF refuses datacenter IPs outright (a direct call
+// returns its own 502 block page), while r.jina.ai's IPs are accepted
+// (measured 5/5, 3.0–4.8s, 2026-09-15). What failed on 2026-09-14 was the
+// relay layer, not the exchange — r.jina.ai answered 401 "bad IP
+// reputation", which is the relay refusing US, and the other two relays were
+// broken for Yahoo that day too (codetabs 0/5 and since removed, allorigins
+// 2/5). So don't read that day as "the exchange is unreliable".
 //
 // This path only ever runs when a person presses 更新 — never on a timer,
 // matching how wang123890-alt/Choose's D31 decision limits its use of the

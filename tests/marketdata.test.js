@@ -293,9 +293,9 @@ await testAsync('getLiveQuote takes Yahoo\'s live price over TWSE\'s pre-open æ˜
 });
 
 await testAsync('getLiveQuote asks nobody else while the exchange is still answering', async () => {
-  // The chain is strictly ordered: Yahoo is a way to reach the data when
-  // TWSE's WAF refuses us (0/5 on 2026-09-14, 5/5 on 2026-09-15), not a
-  // second opinion to race against the exchange.
+  // The chain is strictly ordered: Yahoo is a way to reach the data when the
+  // relay in front of the exchange fails us, not a second opinion to race
+  // against the exchange.
   let twseSettledAt = null;
   let yahooStartedAt = null;
   globalThis.fetch = async (url) => {
