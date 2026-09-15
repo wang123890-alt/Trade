@@ -57,12 +57,20 @@ function initRouter() {
 
   window.addEventListener('hashchange', () => {
     const parsed = parseHash();
-    if (routes[parsed.name]) {
-      currentRoute = parsed.name;
-      currentParam = parsed.param;
-      renderCurrent();
-      updateNavActiveState();
-    }
+    // A back/swipe gesture can land on the very first history entry, from
+    // before any route was ever pushed — its hash is empty, same as a fresh
+    // page load with no hash at all. initRouter() already falls back to
+    // 'overview' for that case; this listener needs the same fallback, or
+    // an empty hash silently does nothing here (routes[''] is undefined),
+    // leaving the previous view's DOM on screen with no visible response.
+    // The next back gesture then has nowhere left to go within the app and
+    // exits it instead — what looked like "swipe back does nothing, so I
+    // swiped again" was actually "the first swipe worked but nothing
+    // re-rendered to show it".
+    currentRoute = routes[parsed.name] ? parsed.name : 'overview';
+    currentParam = parsed.param;
+    renderCurrent();
+    updateNavActiveState();
   });
 
   document.querySelectorAll('[data-route]').forEach((el) => {
