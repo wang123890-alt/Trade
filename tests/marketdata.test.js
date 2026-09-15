@@ -292,17 +292,15 @@ await testAsync('getLiveQuote takes Yahoo\'s live price over TWSE\'s pre-open �
   assert.equal(withoutYahoo.source, '證交所昨收');
 });
 
-await testAsync('getLiveQuote starts Yahoo alongside TWSE, so a blocked TWSE costs no extra waiting', async () => {
-  // TWSE's WAF refuses relay IPs on and off (0/5 on 2026-09-14, 5/5 on
-  // 2026-09-15). When it refuses, Yahoo's request must already be in flight
-  // — awaiting TWSE first is what once cost ~9s of dead time per update.
-  let twseStartedAt = null;
-  let yahooStartedAt = null;
+await testAsync('getLiveQuote asks nobody else while the exchange is still answering', async () => {
+  // The chain is strictly ordered: Yahoo is a way to reach the data when
+  // TWSE's WAF refuses us (0/5 on 2026-09-14, 5/5 on 2026-09-15), not a
+  // second opinion to race against the exchange.
   let twseSettledAt = null;
+  let yahooStartedAt = null;
   globalThis.fetch = async (url) => {
     const target = decodeURIComponent(url);
     if (target.includes('mis.twse.com.tw')) {
-      twseStartedAt ??= Date.now();
       await new Promise((resolve) => setTimeout(resolve, 30)); // slow refusal
       twseSettledAt = Date.now();
       return { ok: false, status: 401 }; // "bad IP reputation"
@@ -316,9 +314,31 @@ await testAsync('getLiveQuote starts Yahoo alongside TWSE, so a blocked TWSE cos
   const quote = await getLiveQuote('2330');
   assert.equal(quote.price, 2390);
   assert.equal(quote.source, '雅虎');
-  assert.ok(twseStartedAt != null, 'expected TWSE to be attempted first');
-  assert.ok(yahooStartedAt != null && yahooStartedAt < twseSettledAt,
-    'expected Yahoo to be in flight before TWSE finished failing, not started after it');
+  assert.ok(twseSettledAt != null, 'expected TWSE to be attempted first');
+  assert.ok(yahooStartedAt != null && yahooStartedAt >= twseSettledAt,
+    'expected Yahoo to start only after TWSE had finished, not alongside it');
+});
+
+await testAsync('getLiveQuotes prices the portfolio from one exchange request and only falls through for what it missed', async () => {
+  const targets = [];
+  globalThis.fetch = async (url) => {
+    const target = decodeURIComponent(url);
+    targets.push(target);
+    if (target.includes('mis.twse.com.tw')) {
+      // The exchange prices 2330 but has no row for 9999.
+      return { ok: true, text: async () => JSON.stringify({ msgArray: [{ c: '2330', d: '20260915', z: '2385.0000' }] }) };
+    }
+    if (url.includes('api.allorigins.win') || url.includes('r.jina.ai')) {
+      return { ok: true, text: async () => JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 55.5 } }] } }) };
+    }
+    return { ok: false };
+  };
+  const quotes = await getLiveQuotes(['2330', '9999']);
+  assert.equal(quotes['2330'].source, '證交所');
+  assert.equal(quotes['9999'].source, '雅虎');
+  // 2330 was settled by the exchange, so nothing may have gone looking for it elsewhere.
+  assert.ok(!targets.some((t) => t.includes('2330.TW')), `expected no Yahoo request for 2330, got ${JSON.stringify(targets)}`);
+  assert.ok(targets.some((t) => t.includes('9999.TW')), 'expected a Yahoo request for the stock TWSE missed');
 });
 
 await testAsync('getLiveQuote reads a relay that wraps its JSON in surrounding text (r.jina.ai)', async () => {
