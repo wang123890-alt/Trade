@@ -1,6 +1,6 @@
 import { getAllWatchItems, addWatchItem, removeWatchItem } from './watchlist.js';
 import { navigate } from '../router.js';
-import { formatDate } from '../utils/format.js';
+import { formatDate, escapeHtml } from '../utils/format.js';
 
 function renderWatchlistView(container) {
   container.innerHTML = `
@@ -58,11 +58,11 @@ function renderList(container) {
   listEl.innerHTML = items
     .map(
       (w) => `
-    <div class="card" data-watch-id="${w.id}" style="border-style:dashed;">
+    <div class="card" data-watch-id="${escapeHtml(w.id)}" style="border-style:dashed;">
       <div style="display:flex; align-items:flex-start; justify-content:space-between;">
-        <button class="stock-link" data-action="view-detail" data-stock-id="${w.stockId}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit;">
+        <button class="stock-link" data-action="view-detail" data-stock-id="${escapeHtml(w.stockId)}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit;">
           <div style="font-size:14.5px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border);">
-            ${w.stockName} <span class="text-faint" style="font-weight:500; font-size:12px;">${w.stockId}</span>
+            ${escapeHtml(w.stockName)} <span class="text-faint" style="font-weight:500; font-size:12px;">${escapeHtml(w.stockId)}</span>
           </div>
           <div class="text-faint" style="font-size:11px; margin-top:2px;">
             ${w.source === 'sold' && w.soldPrice != null

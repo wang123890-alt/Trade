@@ -1,7 +1,7 @@
 import { recompute, addTransaction, deleteTransaction } from './transactions.js';
 import { addWatchItem } from './watchlist.js';
 import { ManualPriceRepository } from '../data/storage.js';
-import { formatMoney, formatDate, pnlClass } from '../utils/format.js';
+import { formatMoney, formatDate, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
 
 // Taiwan brokerage standard rates: transaction fee ~0.1425% on both BUY/SELL,
@@ -229,8 +229,8 @@ function buildDisplayRows(transactions, matches, openLots, errors, manualPrices)
  * matching the original single-transaction row layout. */
 function renderRow(row) {
   const header = `
-    <button class="stock-link" data-action="view-detail" data-stock-id="${row.stockId}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; font:inherit; text-decoration:underline; text-decoration-color:var(--border);">${row.stockName}</button>
-    <span class="text-faint" style="font-weight:500;">${row.stockId}</span>
+    <button class="stock-link" data-action="view-detail" data-stock-id="${escapeHtml(row.stockId)}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; font:inherit; text-decoration:underline; text-decoration-color:var(--border);">${escapeHtml(row.stockName)}</button>
+    <span class="text-faint" style="font-weight:500;">${escapeHtml(row.stockId)}</span>
   `;
 
   if (row.kind === 'sold') {
