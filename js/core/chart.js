@@ -24,6 +24,33 @@ function rocMonthLabel(dateStr) {
   return `${Number(year) - 1911}/${month}`;
 }
 
+// Sub-panel layout shared by RSI/MACD/DMI: each gets its own vertical band
+// below the price/volume chart, on the same x-axis (same xAt/candleWidth),
+// with its own value scale. `top`/`bottom` are in the outer SVG's
+// coordinate space; a caller draws its reference lines and series between
+// them via `valueToY(v)`.
+function renderSubPanel({ top, bottom, label, minValue, maxValue, refLines = [], xAt, width, padding }) {
+  const range = maxValue - minValue || 1;
+  function valueToY(v) {
+    return top + (bottom - top) * (1 - (v - minValue) / range);
+  }
+  const frame = `<line x1="${padding.left}" y1="${top}" x2="${width - padding.right}" y2="${top}" stroke="var(--border)" stroke-width="1"></line>`;
+  const refs = refLines.map((v) => {
+    const y = valueToY(v);
+    return `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"></line>`;
+  }).join('');
+  const labelEl = `<text x="${padding.left}" y="${top + 12}" font-size="10" fill="var(--text-faint)" font-weight="600">${label}</text>`;
+  return { valueToY, svg: frame + refs + labelEl };
+}
+
+function renderLineSeries(values, xAt, valueToY) {
+  const points = values
+    .map((v, i) => (v == null ? null : `${xAt(i)},${valueToY(v)}`))
+    .filter(Boolean)
+    .join(' ');
+  return points ? `<polyline points="${points}" fill="none" stroke-width="1.4"></polyline>` : '';
+}
+
 function renderKLineChart(bars, {
   width = 1040,
   height = 300,
@@ -31,12 +58,24 @@ function renderKLineChart(bars, {
   axisHeight = 22,
   maSeries = [], // [{ label, color, values }] — values same length as bars
   markers = [], // [{ index, label, color }]
+  rsi = null, // number[] — same length as bars, from computeRSI()
+  macd = null, // { macdLine, signalLine, histogram } from computeMACD()
+  dmi = null, // { plusDI, minusDI, adx } from computeDMI()
 } = {}) {
   if (bars.length === 0) return '<div class="empty-state">沒有K線資料</div>';
 
   const hasVolume = bars.some((b) => b.volume != null);
   const volumeGap = hasVolume ? 16 : 0;
-  const chartBottom = height + (hasVolume ? volumeHeight + volumeGap : 0);
+  const priceBottom = height + (hasVolume ? volumeHeight + volumeGap : 0);
+
+  const subPanelHeight = 78;
+  const subPanelGap = 20;
+  const subPanels = [];
+  if (rsi) subPanels.push('rsi');
+  if (macd) subPanels.push('macd');
+  if (dmi) subPanels.push('dmi');
+  const subPanelsTotalHeight = subPanels.length * (subPanelGap + subPanelHeight);
+  const chartBottom = priceBottom + subPanelsTotalHeight;
   const totalHeight = chartBottom + axisHeight;
 
   const padding = { top: 44, right: 10, bottom: 10, left: 10 };
@@ -164,6 +203,55 @@ function renderKLineChart(bars, {
     }).join('');
   }
 
+  // Indicator sub-panels, stacked in a fixed order (RSI, then MACD, then
+  // DMI) below the price/volume chart, each in its own vertical band.
+  let subPanelSvg = '';
+  let subPanelCursor = priceBottom + subPanelGap;
+  if (rsi) {
+    const top = subPanelCursor;
+    const bottom = top + subPanelHeight;
+    const { valueToY, svg: frame } = renderSubPanel({
+      top, bottom, label: 'RSI(14)', minValue: 0, maxValue: 100, refLines: [30, 50, 70], xAt, width, padding,
+    });
+    const line = renderLineSeries(rsi, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--accent)"');
+    subPanelSvg += frame + line;
+    subPanelCursor = bottom + subPanelGap;
+  }
+  if (macd) {
+    const top = subPanelCursor;
+    const bottom = top + subPanelHeight;
+    const allValues = [...macd.macdLine, ...macd.signalLine, ...macd.histogram].filter((v) => v != null);
+    const maxAbs = Math.max(1, ...allValues.map((v) => Math.abs(v)));
+    const { valueToY, svg: frame } = renderSubPanel({
+      top, bottom, label: 'MACD(12,26,9)', minValue: -maxAbs, maxValue: maxAbs, refLines: [0], xAt, width, padding,
+    });
+    const histBars = macd.histogram.map((v, i) => {
+      if (v == null) return '';
+      const isUp = v >= 0;
+      const color = isUp ? 'var(--red)' : 'var(--green)';
+      const zeroY = valueToY(0);
+      const y = valueToY(Math.max(0, v));
+      const barHeight = Math.max(1, Math.abs(valueToY(v) - zeroY));
+      return `<rect x="${xAt(i) - candleWidth / 2}" y="${Math.min(y, zeroY)}" width="${candleWidth}" height="${barHeight}" fill="${color}" opacity="0.6"></rect>`;
+    }).join('');
+    const macdLineSvg = renderLineSeries(macd.macdLine, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="#fbbf24"');
+    const signalLineSvg = renderLineSeries(macd.signalLine, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="#f0abfc"');
+    subPanelSvg += frame + histBars + macdLineSvg + signalLineSvg;
+    subPanelCursor = bottom + subPanelGap;
+  }
+  if (dmi) {
+    const top = subPanelCursor;
+    const bottom = top + subPanelHeight;
+    const { valueToY, svg: frame } = renderSubPanel({
+      top, bottom, label: 'DMI(14)', minValue: 0, maxValue: 100, refLines: [20], xAt, width, padding,
+    });
+    const plusDISvg = renderLineSeries(dmi.plusDI, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--red)"');
+    const minusDISvg = renderLineSeries(dmi.minusDI, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--green)"');
+    const adxSvg = renderLineSeries(dmi.adx, xAt, valueToY).replace('stroke-width="1.4"', 'stroke-width="1.4" stroke="var(--text-faint)"');
+    subPanelSvg += frame + plusDISvg + minusDISvg + adxSvg;
+    subPanelCursor = bottom + subPanelGap;
+  }
+
   // X-axis: baseline along the bottom, a tick + ROC-year date label at each
   // month boundary (the full-height guide for the same boundary is drawn
   // behind the candles, above), and a short unlabeled tick at the first
@@ -213,6 +301,7 @@ function renderKLineChart(bars, {
       ${candles}
       ${markerEls}
       ${volumeBars}
+      ${subPanelSvg}
       ${axis}
     </svg>
   `;

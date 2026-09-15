@@ -49,6 +49,126 @@ function rsiFromAverages(avgGain, avgLoss) {
   return 100 - 100 / (1 + rs);
 }
 
+/** Exponential moving average over a value series that may start with
+ * `null`s (e.g. the MACD line, which is null until the slow EMA has
+ * enough history) — skips leading nulls, seeds with their simple average
+ * once `n` non-null values have accumulated, then EMAs the rest. Reused
+ * for both the close-price EMA (no nulls) and the MACD signal line EMA
+ * (leading nulls) so there's one implementation instead of two. */
+function emaSeries(values, n) {
+  const result = new Array(values.length).fill(null);
+  const k = 2 / (n + 1);
+  let ema = null;
+  let seedSum = 0;
+  let seedCount = 0;
+
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v == null) continue;
+    if (ema == null) {
+      seedSum += v;
+      seedCount++;
+      if (seedCount === n) {
+        ema = seedSum / n;
+        result[i] = ema;
+      }
+      continue;
+    }
+    ema = v * k + ema * (1 - k);
+    result[i] = ema;
+  }
+  return result;
+}
+
+/** MACD(fast, slow, signal) on `close`. Returns { macdLine, signalLine,
+ * histogram }, each null-padded to bars.length like computeMA/computeRSI. */
+function computeMACD(bars, { fastPeriod = 12, slowPeriod = 26, signalPeriod = 9 } = {}) {
+  const closes = bars.map((b) => b.close);
+  const emaFast = emaSeries(closes, fastPeriod);
+  const emaSlow = emaSeries(closes, slowPeriod);
+  const macdLine = closes.map((_, i) =>
+    emaFast[i] != null && emaSlow[i] != null ? emaFast[i] - emaSlow[i] : null
+  );
+  const signalLine = emaSeries(macdLine, signalPeriod);
+  const histogram = macdLine.map((v, i) =>
+    v != null && signalLine[i] != null ? v - signalLine[i] : null
+  );
+  return { macdLine, signalLine, histogram };
+}
+
+/** Wilder's DMI: +DI/-DI (period `n`, default 14) and ADX (the Wilder-
+ * smoothed average of DX, itself starting `n` periods after +DI/-DI do).
+ * Returns { plusDI, minusDI, adx }, each null-padded to bars.length. */
+function computeDMI(bars, n = 14) {
+  const len = bars.length;
+  const plusDI = new Array(len).fill(null);
+  const minusDI = new Array(len).fill(null);
+  const adx = new Array(len).fill(null);
+  if (len < n + 1) return { plusDI, minusDI, adx };
+
+  const trueRanges = new Array(len).fill(0);
+  const plusDMs = new Array(len).fill(0);
+  const minusDMs = new Array(len).fill(0);
+  for (let i = 1; i < len; i++) {
+    const highDiff = bars[i].high - bars[i - 1].high;
+    const lowDiff = bars[i - 1].low - bars[i].low;
+    plusDMs[i] = highDiff > lowDiff && highDiff > 0 ? highDiff : 0;
+    minusDMs[i] = lowDiff > highDiff && lowDiff > 0 ? lowDiff : 0;
+    trueRanges[i] = Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - bars[i - 1].close),
+      Math.abs(bars[i].low - bars[i - 1].close)
+    );
+  }
+
+  let smoothTR = 0;
+  let smoothPlusDM = 0;
+  let smoothMinusDM = 0;
+  for (let i = 1; i <= n; i++) {
+    smoothTR += trueRanges[i];
+    smoothPlusDM += plusDMs[i];
+    smoothMinusDM += minusDMs[i];
+  }
+
+  const dxValues = new Array(len).fill(null);
+  function setDI(i) {
+    const pDI = smoothTR > 0 ? (smoothPlusDM / smoothTR) * 100 : 0;
+    const mDI = smoothTR > 0 ? (smoothMinusDM / smoothTR) * 100 : 0;
+    plusDI[i] = pDI;
+    minusDI[i] = mDI;
+    const diSum = pDI + mDI;
+    dxValues[i] = diSum > 0 ? (Math.abs(pDI - mDI) / diSum) * 100 : 0;
+  }
+  setDI(n);
+
+  for (let i = n + 1; i < len; i++) {
+    smoothTR = smoothTR - smoothTR / n + trueRanges[i];
+    smoothPlusDM = smoothPlusDM - smoothPlusDM / n + plusDMs[i];
+    smoothMinusDM = smoothMinusDM - smoothMinusDM / n + minusDMs[i];
+    setDI(i);
+  }
+
+  let dxSum = 0;
+  let dxCount = 0;
+  let adxRunning = null;
+  for (let i = n; i < len; i++) {
+    if (dxValues[i] == null) continue;
+    if (adxRunning == null) {
+      dxSum += dxValues[i];
+      dxCount++;
+      if (dxCount === n) {
+        adxRunning = dxSum / n;
+        adx[i] = adxRunning;
+      }
+      continue;
+    }
+    adxRunning = (adxRunning * (n - 1) + dxValues[i]) / n;
+    adx[i] = adxRunning;
+  }
+
+  return { plusDI, minusDI, adx };
+}
+
 /** Detect a MA cross between two already-computed MA series at index i
  * (compares i-1 -> i). Returns 'golden' | 'death' | null. */
 function detectMACross(shortMA, longMA, i) {
@@ -64,4 +184,4 @@ function detectMACross(shortMA, longMA, i) {
   return null;
 }
 
-export { computeMA, computeRSI, detectMACross };
+export { computeMA, computeRSI, computeMACD, computeDMI, detectMACross };
