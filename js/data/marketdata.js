@@ -43,6 +43,12 @@ const PROXY_TIMEOUT_MS = 12000;
 // a more generous timeout than a live-quote attempt does.
 const KLINE_TIMEOUT_MS = 10000;
 
+// How long the official TWSE answer may hold up a quote that the parallel
+// Yahoo request has probably already produced. TWSE via relay measured
+// 3.0–4.8s on 2026-09-15 (Yahoo: 0.52–0.70s), so 6s covers a healthy TWSE
+// while capping what a hung one can cost.
+const TWSE_PREFERENCE_WINDOW_MS = 6000;
+
 /** Every network call in this module goes through this instead of raw
  * fetch(). A plain fetch() has no timeout of its own — if a public endpoint
  * or CORS proxy hangs instead of failing outright, a quote fetch can look
@@ -84,6 +90,18 @@ const CORS_PROXIES = [
 /** Parse a response body that should contain JSON but might be wrapped in
  * surrounding text (r.jina.ai prefixes a plain-text header block). Falls
  * back to slicing from the first brace to the last. */
+/** Resolve to null if `promise` hasn't settled within `ms`. Used to bound how
+ * long a preferred-but-flaky source may delay an answer a parallel fallback
+ * already has ready — the underlying request keeps its own AbortController
+ * timeout, its result is simply no longer wanted. */
+function withDeadline(promise, ms) {
+  let timer;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise.catch(() => null), deadline]).finally(() => clearTimeout(timer));
+}
+
 function parseJsonLoose(text) {
   try {
     return JSON.parse(text);
@@ -190,10 +208,21 @@ function parseTwseDate(d) {
 
 function parseTwseRow(row) {
   const date = parseTwseDate(row.d);
-  const traded = parseFloat(row.z); // 最新成交價；開盤前/無成交時是 '-'
-  if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true, source: 'TWSE' };
-  const prevClose = parseFloat(row.y); // 昨收，作為尚無成交時的退而求其次
-  if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false, source: 'TWSE昨收' };
+  // Every empty MIS field is the string '-', never null and never 0 (the same
+  // trap wang123890-alt/Choose's fetcher documents). `z` is the price of the
+  // most recent match, so mid-session it is blank surprisingly often —
+  // measured 2026-09-15 12:03, 2454 had z '-' while it was plainly trading
+  // (o 4505 / h 4575 / l 4465 / v 4007). `trade.z` carries that same last
+  // trade (4495 at 12:01:56), so it's checked before giving up on today.
+  const traded = parseFloat(row.z);
+  if (Number.isFinite(traded)) return { price: traded, date, isIntraday: true, source: '證交所' };
+  const lastTick = parseFloat(row.trade?.z);
+  if (Number.isFinite(lastTick)) return { price: lastTick, date, isIntraday: true, source: '證交所' };
+  // Nothing has traded today at all (pre-open). Yesterday's close is a real
+  // number but not a live one, so it's tagged accordingly — getLiveQuote
+  // prefers Yahoo's live price over this.
+  const prevClose = parseFloat(row.y);
+  if (Number.isFinite(prevClose)) return { price: prevClose, date, isIntraday: false, source: '證交所昨收' };
   return null;
 }
 
@@ -343,23 +372,28 @@ const YahooFinanceProvider = {
   },
 };
 
-// TwseRealtimeProvider is deliberately NOT in the chains below, even though
-// TWSE MIS is the canonical intraday source for Taiwan stocks. Measured
-// 2026-09-14: a browser can't read it directly (no CORS header), and every
-// public relay that could have fetched it server-side fails to reach it at
-// all (allorigins 408, codetabs 522, r.jina.ai 401 "bad IP reputation") —
-// TWSE evidently refuses those hosts. Leaving it first in the chain cost
-// ~9 seconds of dead waiting on every single update and never once
-// returned a price. The provider is kept (exported, tested) because it
-// works fine from a server — see wang123890-alt/Choose, which calls the
-// same endpoint from Python — so it's ready if this app ever gains a
-// backend; it just cannot work from a static page.
+// Source order below is 證交所 (TWSE MIS) → 雅虎 → FinMind, with TWSE and
+// Yahoo always fired AT THE SAME TIME rather than one after the other.
+//
+// TWSE first because it is the exchange itself: Yahoo's Taiwan quotes are
+// derived from it, so going straight to the origin skips a middleman.
+// In parallel because TWSE's WAF refuses datacenter/relay IPs on and off —
+// measured via r.jina.ai 0/5 on 2026-09-14 (HTTP 401 "bad IP reputation")
+// but 5/5 on 2026-09-15 (3.0–4.8s each). That flip is exactly why it can't
+// be a serial first link: awaiting a blocked TWSE before even starting
+// Yahoo is what once cost ~9 seconds of dead waiting per update. Firing
+// both together means a blocked TWSE costs nothing — Yahoo's answer
+// (0.52–0.70s) is already sitting there when TWSE's window expires.
+//
+// The price of that is one extra request per quote on the happy path. That
+// is the same trade the CORS proxy race already makes, and this path only
+// ever runs when a person presses 更新 — never on a timer, matching how
+// wang123890-alt/Choose's D31 decision limits its use of the same endpoint
+// (user-triggered, small batches, cooldown, never polled).
 
-/** The quote callers should actually use: Yahoo Finance (via relay) for a
- * real intraday price, and FinMind's daily close only as the last resort —
- * FinMind is only ever accurate after the market closes, so it's a safety
- * net rather than a real intraday source. */
-async function getLiveQuote(stockId) {
+/** Yahoo → FinMind, the non-official half of the chain. Split out so both
+ * getLiveQuote and getLiveQuotes can run it alongside TWSE instead of after. */
+async function quoteWithoutTwse(stockId) {
   const yahoo = await YahooFinanceProvider.getQuote(stockId);
   if (yahoo) return yahoo;
   // Unlike YahooFinanceProvider (which swallows every failure and just
@@ -369,28 +403,57 @@ async function getLiveQuote(stockId) {
   // directly, which is the only way to tell "Yahoo had nothing and here's
   // exactly why FinMind also failed" from "everything returned null
   // silently", since Yahoo's own reasons are invisible by design.
-  const finmind = await FinMindProvider.getQuote(stockId);
-  if (finmind) return finmind;
-  throw new MarketDataError('雅虎財經與 FinMind 都查無這檔的價格資料');
+  return FinMindProvider.getQuote(stockId);
+}
+
+/** The quote callers should actually use: the exchange's own live price when
+ * it can be had, Yahoo's intraday price when it can't, and FinMind's daily
+ * close only as a last resort — FinMind is only ever accurate after the
+ * close, so it's a safety net rather than a real intraday source. */
+async function getLiveQuote(stockId) {
+  const fallback = quoteWithoutTwse(stockId);
+  // Held now so a TWSE win doesn't leave this rejecting unhandled; the
+  // real error (if TWSE misses too) is re-raised by awaiting it below.
+  fallback.catch(() => {});
+
+  const twse = await withDeadline(TwseRealtimeProvider.getQuote(stockId), TWSE_PREFERENCE_WINDOW_MS);
+  // Only a LIVE exchange price outranks Yahoo. TWSE's pre-open answer is
+  // yesterday's close (isIntraday false), which is worth less than Yahoo's
+  // actual intraday number, so it waits behind it rather than in front.
+  if (twse?.isIntraday) return twse;
+
+  let fallbackError = null;
+  const quote = await fallback.catch((err) => { fallbackError = err; return null; });
+  if (quote) return quote;
+  // A stale exchange number still beats no number: only report failure when
+  // TWSE had nothing either.
+  if (twse) return twse;
+  // FinMindProvider's own error message says exactly what went wrong, and the
+  // caller puts it straight in front of the user — don't flatten it.
+  if (fallbackError) throw fallbackError;
+  throw new MarketDataError('證交所、雅虎財經與 FinMind 都查無這檔的價格資料');
 }
 
 /** Like getLiveQuote, but for many stocks at once — used by a bulk "update
- * all holdings" action. Yahoo's chart API only takes one symbol per
- * request, so this is one chain per stock, but the stocks run in PARALLEL:
- * a portfolio of ten holdings costs about as long as one, instead of ten
- * times as long.
+ * all holdings" action. TWSE covers the whole portfolio in ONE request (see
+ * TwseRealtimeProvider.getQuotes), while the per-stock Yahoo/FinMind chains
+ * run alongside it — Yahoo's chart API takes only one symbol per request, so
+ * those are one chain per stock, all in PARALLEL: ten holdings cost about as
+ * long as one, instead of ten times as long.
  * Returns { [stockId]: {price,date,isIntraday,source} }, omitting stocks
  * nothing could quote. Never throws. */
 async function getLiveQuotes(stockIds) {
   const ids = [...new Set(stockIds)];
+  if (ids.length === 0) return {};
+
+  const twsePromise = withDeadline(TwseRealtimeProvider.getQuotes(ids), TWSE_PREFERENCE_WINDOW_MS);
+  const fallbacks = new Map(ids.map((id) => [id, quoteWithoutTwse(id).catch(() => null)]));
+
+  const twseQuotes = (await twsePromise) || {};
   const settled = await Promise.all(ids.map(async (id) => {
-    try {
-      return [id, await getLiveQuote(id)];
-    } catch (err) {
-      // This stock's chain failed entirely — leave it out of the result;
-      // the caller (bulk update) reports which ones came back empty.
-      return [id, null];
-    }
+    const twse = twseQuotes[id];
+    if (twse?.isIntraday) return [id, twse]; // see getLiveQuote: only a live exchange price outranks Yahoo
+    return [id, (await fallbacks.get(id)) || twse || null];
   }));
   return Object.fromEntries(settled.filter(([, quote]) => quote));
 }
