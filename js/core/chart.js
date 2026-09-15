@@ -62,6 +62,7 @@ function renderKLineChart(bars, {
   macd = null, // { macdLine, signalLine, histogram } from computeMACD()
   dmi = null, // { plusDI, minusDI, adx } from computeDMI()
   selectedIndex = null, // index into bars whose column gets a vertical marker line
+  levels = [], // [{ price, label, color }] — horizontal reference lines on the price panel
 } = {}) {
   if (bars.length === 0) return '<div class="empty-state">沒有K線資料</div>';
 
@@ -115,8 +116,12 @@ function renderKLineChart(bars, {
   const allLows = bars.map((b) => b.low);
   const allHighs = bars.map((b) => b.high);
   const allMaValues = maSeries.flatMap((s) => s.values.filter((v) => v != null));
-  const minPrice = Math.min(...allLows, ...(allMaValues.length ? allMaValues : allLows));
-  const maxPrice = Math.max(...allHighs, ...(allMaValues.length ? allMaValues : allHighs));
+  // Level prices join the range calculation so a target or stop outside the
+  // candles' own span still lands inside the panel instead of being drawn
+  // off the top or bottom edge where nobody can see it.
+  const levelPrices = levels.map((l) => l.price).filter((p) => Number.isFinite(p));
+  const minPrice = Math.min(...allLows, ...(allMaValues.length ? allMaValues : allLows), ...levelPrices);
+  const maxPrice = Math.max(...allHighs, ...(allMaValues.length ? allMaValues : allHighs), ...levelPrices);
   const priceRange = maxPrice - minPrice || 1;
 
   function yAt(price) {
@@ -295,6 +300,21 @@ function renderKLineChart(bars, {
   }
   const axis = axisEls.join('');
 
+  // Horizontal reference levels (support/resistance/stop/target), drawn as
+  // dashed lines across the price panel with the price and a short label
+  // pinned to the left edge so they stay readable at phone width.
+  const levelEls = levels
+    .filter((l) => Number.isFinite(l.price))
+    .map((l) => {
+      const y = yAt(l.price);
+      const color = l.color || 'var(--text-faint)';
+      return `
+      <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${color}" stroke-width="1" stroke-dasharray="6,4" opacity="0.8"></line>
+      <text x="${padding.left + 4}" y="${y - 4}" font-size="11" fill="${color}" font-weight="600">${l.label} ${l.price}</text>
+    `;
+    })
+    .join('');
+
   // Tap-to-select marker: a vertical line down the selected candle's column,
   // split into a segment above its high and a segment below its low so it
   // never draws over the candle's own wick — the two segments are computed
@@ -336,6 +356,7 @@ function renderKLineChart(bars, {
       ${markerEls}
       ${volumeBars}
       ${subPanelSvg}
+      ${levelEls}
       ${selectionLine}
       ${axis}
       ${hitTargets}
