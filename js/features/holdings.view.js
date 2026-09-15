@@ -6,7 +6,7 @@ import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass } from '../utils/format.js';
 import { navigate } from '../router.js';
 
-// Where each displayed price came from ("雅虎" for a live intraday quote,
+// Where each displayed price came from ("雅虎股市" for a live intraday quote,
 // "09/12收盤" for FinMind's stale daily close) and when this session last
 // fetched it, keyed by stockId. Only the price itself is persisted, so this
 // is in-memory and only labels prices fetched in this session — enough to
@@ -93,7 +93,7 @@ function render(container) {
         // came back empty for every stock. That used to fall through
         // silently: no error, so the catch below never ran, and no update
         // happened with zero on-screen indication.
-        alert('全部更新失敗：雅虎財經與 FinMind 都查無資料，請稍後再試');
+        alert('全部更新失敗：雅虎股市與 FinMind 都查無資料，請稍後再試');
       }
     } catch (err) {
       alert(err?.message || '全部更新失敗，請稍後再試');

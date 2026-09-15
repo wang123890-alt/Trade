@@ -52,7 +52,7 @@ async function loadAndRenderChart(container, stockId, stockTx) {
     // still the fallback since it's the CORS-friendly, no-relay-needed
     // source when Yahoo's relay chain has nothing.
     bars = await YahooFinanceProvider.getKLine(stockId);
-    sourceLabel = '雅虎';
+    sourceLabel = '雅虎股市';
   } catch (err) {
     try {
       bars = await FinMindProvider.getKLine(stockId);
