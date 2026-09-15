@@ -94,7 +94,6 @@ async function persist() {
         // change; re-apply is intentionally simple (whole-document
         // last-write-wins) since this app has one editor at a time.
         remoteSha = await githubStore.pushRemote(state, sha);
-        state = state; // no-op, kept for clarity: our in-memory state is what we pushed
         void content;
         remoteAvailable = true;
         return { ok: true, retried: true };

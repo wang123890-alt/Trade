@@ -282,7 +282,7 @@ function parseYahooMeta(payload) {
   const date = meta.regularMarketTime
     ? new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10)
     : new Date().toISOString().slice(0, 10);
-  return { price, date, isIntraday: true, source: '雅虎' };
+  return { price, date, isIntraday: true, source: '雅虎股市' };
 }
 
 /** Best-effort intraday quote from Yahoo Finance, used when TWSE's own feed
@@ -367,12 +367,12 @@ const YahooFinanceProvider = {
     try {
       return await Promise.any(attempts);
     } catch (err) {
-      throw new MarketDataError('雅虎財經K線資料無法取得', err);
+      throw new MarketDataError('雅虎股市K線資料無法取得', err);
     }
   },
 };
 
-// Source order below is 證交所 (TWSE MIS) → 雅虎 → FinMind, tried STRICTLY IN
+// Source order below is 證交所 (TWSE MIS) → 雅虎股市 → FinMind, tried STRICTLY IN
 // ORDER: nothing else is requested while the exchange is still answering.
 //
 // TWSE first and alone because it is the exchange itself — Yahoo's Taiwan
@@ -430,7 +430,7 @@ async function getLiveQuote(stockId) {
   // FinMindProvider's own error message says exactly what went wrong, and the
   // caller puts it straight in front of the user — don't flatten it.
   if (fallbackError) throw fallbackError;
-  throw new MarketDataError('證交所、雅虎財經與 FinMind 都查無這檔的價格資料');
+  throw new MarketDataError('證交所、雅虎股市與 FinMind 都查無這檔的價格資料');
 }
 
 /** Like getLiveQuote, but for many stocks at once — used by a bulk "update

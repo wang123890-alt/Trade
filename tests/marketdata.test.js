@@ -284,7 +284,7 @@ await testAsync('getLiveQuote takes Yahoo\'s live price over TWSE\'s pre-open �
   };
   const withYahoo = await getLiveQuote('2330');
   assert.equal(withYahoo.price, 2390);
-  assert.equal(withYahoo.source, '雅虎');
+  assert.equal(withYahoo.source, '雅虎股市');
 
   yahooWorks = false;
   const withoutYahoo = await getLiveQuote('2330');
@@ -313,7 +313,7 @@ await testAsync('getLiveQuote asks nobody else while the exchange is still answe
   };
   const quote = await getLiveQuote('2330');
   assert.equal(quote.price, 2390);
-  assert.equal(quote.source, '雅虎');
+  assert.equal(quote.source, '雅虎股市');
   assert.ok(twseSettledAt != null, 'expected TWSE to be attempted first');
   assert.ok(yahooStartedAt != null && yahooStartedAt >= twseSettledAt,
     'expected Yahoo to start only after TWSE had finished, not alongside it');
@@ -335,7 +335,7 @@ await testAsync('getLiveQuotes prices the portfolio from one exchange request an
   };
   const quotes = await getLiveQuotes(['2330', '9999']);
   assert.equal(quotes['2330'].source, '證交所');
-  assert.equal(quotes['9999'].source, '雅虎');
+  assert.equal(quotes['9999'].source, '雅虎股市');
   // 2330 was settled by the exchange, so nothing may have gone looking for it elsewhere.
   assert.ok(!targets.some((t) => t.includes('2330.TW')), `expected no Yahoo request for 2330, got ${JSON.stringify(targets)}`);
   assert.ok(targets.some((t) => t.includes('9999.TW')), 'expected a Yahoo request for the stock TWSE missed');
