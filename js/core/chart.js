@@ -61,6 +61,7 @@ function renderKLineChart(bars, {
   rsi = null, // number[] — same length as bars, from computeRSI()
   macd = null, // { macdLine, signalLine, histogram } from computeMACD()
   dmi = null, // { plusDI, minusDI, adx } from computeDMI()
+  selectedIndex = null, // index into bars whose column gets a vertical marker line
 } = {}) {
   if (bars.length === 0) return '<div class="empty-state">沒有K線資料</div>';
 
@@ -294,6 +295,38 @@ function renderKLineChart(bars, {
   }
   const axis = axisEls.join('');
 
+  // Tap-to-select marker: a vertical line down the selected candle's column,
+  // split into a segment above its high and a segment below its low so it
+  // never draws over the candle's own wick — the two segments are computed
+  // to stop exactly at the wick's y-range rather than relying on SVG paint
+  // order (which would still leave a sliver of the line visible past the
+  // wick's own stroke width).
+  let selectionLine = '';
+  if (selectedIndex != null && selectedIndex >= 0 && selectedIndex < bars.length) {
+    const bar = bars[selectedIndex];
+    const x = xAt(selectedIndex);
+    const wickTopY = yAt(bar.high);
+    const wickBottomY = yAt(bar.low);
+    const lineTop = padding.top;
+    const lineBottom = chartBottom;
+    const segs = [];
+    if (wickTopY > lineTop) {
+      segs.push(`<line x1="${x}" y1="${lineTop}" x2="${x}" y2="${wickTopY}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4,3"></line>`);
+    }
+    if (wickBottomY < lineBottom) {
+      segs.push(`<line x1="${x}" y1="${wickBottomY}" x2="${x}" y2="${lineBottom}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4,3"></line>`);
+    }
+    selectionLine = segs.join('');
+  }
+
+  // Invisible full-height hit targets, one per bar slot (wider than the
+  // candle body itself so a tap near — not just exactly on — a thin wick
+  // still registers), drawn last so they sit on top of everything else and
+  // always receive the click regardless of what's visually underneath.
+  const hitTargets = bars
+    .map((b, i) => `<rect x="${xAt(i) - barSlot / 2}" y="${padding.top}" width="${barSlot}" height="${chartBottom - padding.top}" fill="transparent" data-index="${i}" style="cursor:pointer;"></rect>`)
+    .join('');
+
   return `
     <svg viewBox="0 0 ${width} ${totalHeight}" style="display:block; width:100%; height:auto;">
       ${gridLines}
@@ -303,7 +336,9 @@ function renderKLineChart(bars, {
       ${markerEls}
       ${volumeBars}
       ${subPanelSvg}
+      ${selectionLine}
       ${axis}
+      ${hitTargets}
     </svg>
   `;
 }
