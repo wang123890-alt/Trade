@@ -1,7 +1,7 @@
 import { recompute } from './transactions.js';
 import { StockNotesRepository } from '../data/storage.js';
 import { FinMindProvider, YahooFinanceProvider, CsvProvider, MarketDataError } from '../data/marketdata.js';
-import { computeMA, computeRSI, detectMACross } from '../core/indicators.js';
+import { computeMA, computeRSI, computeMACD, computeDMI, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { attachLossReviews, summarizeLossPatterns } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
@@ -101,10 +101,15 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const ma20 = computeMA(bars, 20);
   const ma60 = computeMA(bars, 60);
   const rsi = computeRSI(bars, 14);
+  const macd = computeMACD(bars);
+  const dmi = computeDMI(bars);
 
   const lastIndex = bars.length - 1;
   const cross = detectMACross(ma5, ma20, lastIndex);
+  const macdCross = detectMACross(macd.macdLine, macd.signalLine, lastIndex);
+  const dmiCross = detectMACross(dmi.plusDI, dmi.minusDI, lastIndex);
   const lastRSI = rsi[lastIndex];
+  const lastADX = dmi.adx[lastIndex];
 
   const markers = stockTx
     .map((tx) => {
@@ -126,6 +131,11 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   if (cross === 'death') signalLines.push('MA5 / MA20 出現死亡交叉，短均線轉弱');
   if (lastRSI != null && lastRSI >= RSI_OVERBOUGHT) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超買區間，留意過熱風險`);
   if (lastRSI != null && lastRSI <= RSI_OVERSOLD) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超賣區間`);
+  if (macdCross === 'golden') signalLines.push('MACD 出現黃金交叉（DIF上穿DEA），動能轉強');
+  if (macdCross === 'death') signalLines.push('MACD 出現死亡交叉（DIF下穿DEA），動能轉弱');
+  if (dmiCross === 'golden') signalLines.push('DMI：+DI上穿-DI，趨勢轉多');
+  if (dmiCross === 'death') signalLines.push('DMI：+DI下穿-DI，趨勢轉空');
+  if (lastADX != null && lastADX >= 25) signalLines.push(`ADX 為 ${lastADX.toFixed(0)}，目前趨勢力道${lastADX >= 40 ? '很強' : '偏強'}`);
 
   chartArea.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
@@ -134,6 +144,9 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
         <span class="tag" style="color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.25);">MA10</span>
         <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20</span>
         <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60</span>
+        <span class="tag" style="color:var(--red);">+DI</span>
+        <span class="tag" style="color:var(--green);">-DI</span>
+        <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">ADX</span>
       </div>
       ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px;">${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新</div>` : ''}
     </div>
@@ -145,6 +158,9 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
         { label: 'MA60', color: 'var(--text-faint)', values: ma60 },
       ],
       markers,
+      rsi,
+      macd,
+      dmi,
     })}
     <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">訊號說明</div>
