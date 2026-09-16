@@ -47,11 +47,26 @@ const PIVOT_LOOKBACK = 3; // bars either side that a swing point must beat
 // Testing full round-trip trades (this entry rule, this stop, this target,
 // tracked to whichever hits first) instead, sweeping k against REAL %
 // return per trade rather than R-multiple (R-multiple is misleading here —
-// see the module comment above) told a different story: return peaks
-// around 1.0×ATR (~1.23%/trade) and is already lower at 1.5×ATR
-// (~0.97%/trade), consistent across 4 of 5 symbols tested. 1.5 was a real
-// improvement over the original 0.5 on the metric it was optimized for,
-// just not the metric that actually matters.
+// see the module comment above) told a different story on the original
+// 5-symbol sample: return peaked around 1.0×ATR (~1.23%/trade) and was
+// already lower at 1.5×ATR (~0.97%/trade). 1.5 was a real improvement over
+// the original 0.5 on the metric it was optimized for, just not the metric
+// that actually matters.
+//
+// Re-run on a genuinely independent 43-symbol sample, the same sweep did
+// NOT reproduce that peak — return kept climbing all the way to 5×ATR, even
+// after correcting a censoring bug where a wide stop lets a trade time out
+// (drop out of the "resolved" average) instead of ever being scored a loss.
+// That climb is a real but different effect: 5 years of mostly-rising
+// prices means a stop so wide it rarely triggers converges toward "no stop
+// at all", which will always look best on raw average-return in a bull
+// window — it isn't evidence the stop itself improved, and a stop that
+// doesn't trigger has stopped doing the one thing a stop is for. Chasing
+// that number further was deliberately not done. 1.0×ATR stays: it's the
+// value the ORIGINAL, methodologically-clean 5-symbol test actually
+// supports, and no honest re-test since has produced a better-grounded
+// number to replace it with — only a reminder that "maximize average
+// return" is the wrong objective for a risk-management parameter.
 const STOP_ATR_BUFFER = 1.0;
 const FALLBACK_STOP_ATR = 2; // stop distance when there's no support to lean on (not separately backtested — same low-confidence status as before)
 
@@ -66,6 +81,7 @@ const FALLBACK_STOP_ATR = 2; // stop distance when there's no support to lean on
 // that it shouldn't cap the target, not that the level itself is meaningless.
 const TARGET_R_MULTIPLE = 2;
 const MIN_BARS = 30;
+const BREAKOUT_WINDOW = 20; // days a close must beat every high within to count as a breakout
 
 /**
  * Swing points: a bar whose high beats every high within ±lookback (pivot
@@ -137,31 +153,47 @@ function computeTradeLevels(bars, { ma5 = [], ma20 = [], ma60 = [], atr = [], ad
     }
   }
 
-  // Entry: in an uptrend the reference used to be "wait for a pullback to
-  // MA20" — tested against simply buying the same day trend turns up (no
-  // waiting) and lost, badly and consistently: 71.5% win / 0.08R waiting
-  // for MA20 vs 83.7% win / 0.13R not waiting (z=-5.53 on 2,335 simulated
-  // trades). A pullback to MA20 was, on this data, more often an early
-  // warning that the trend was weakening than a discount entry — the
-  // "don't chase, wait for the dip" intuition this rule encoded turned out
-  // to be exactly backwards on 5 years of real bars.
+  // Entry: went through three rounds on real bars before landing here.
+  // Round 1 (5 symbols): "wait for a pullback to MA20" lost badly to simply
+  // buying the day trend turns up (71.5% win / 0.08R waiting vs 83.7% win /
+  // 0.13R not waiting, z=-5.53) — a pullback to MA20 was more often an
+  // early warning the trend was weakening than a discount entry. A
+  // shallower MA5 pullback came out statistically tied with not waiting
+  // (z=-0.97) and shipped as the compromise, since it preserved a "zone"
+  // to show rather than a single "buy now" price.
   //
-  // A shallower pullback to MA5 was tested as a replacement and came out
-  // statistically tied with not waiting at all (z=-0.97, not significant)
-  // while still giving the UI something to call an entry ZONE rather than
-  // a single "buy now" price. That's why this uses MA5, not because MA5
-  // itself was shown to help — it wasn't shown to hurt either, which for
-  // this data is the best any pullback-based rule managed.
+  // Round 2 (43 symbols, a genuinely independent sample — the 5 above were
+  // what round 1 was tuned on): the MA5-pullback zone lost outright, not
+  // just tied, to two other options — buying immediately (weighted 3.59%/
+  // trade, 84% of symbols positive, largest sample: n=17,174) and buying a
+  // 20-day-high breakout while trend is up (weighted 5.57%/trade, also 84%
+  // of symbols positive, but only 13% of up-trend days qualify: n=2,241).
+  // Breakout wins on the pooled number, but its per-SYMBOL median (2.56%)
+  // is actually a hair below buying-immediately's (2.71%) — its edge in
+  // the pooled figure comes from a handful of large breakout wins, not from
+  // being better on the typical stock. Neither claim is settled enough to
+  // pick one exclusively over the other.
+  //
+  // So for now: the zone is anchored at the current price (buying
+  // immediately, the larger and more broadly-representative sample), and
+  // the basis text separately flags a 20-day-high breakout when today
+  // happens to be one — visible, not load-bearing, so real usage can show
+  // whether the breakout flag is worth acting on before either rule is
+  // dropped or promoted.
   //
   // In a range it's the lower edge. In a downtrend no entry zone is offered
   // at all — an explicit "nothing to suggest" beats inventing a level so
   // the row isn't blank; this branch wasn't separately backtested.
+  const isBreakout =
+    last >= BREAKOUT_WINDOW &&
+    price > Math.max(...bars.slice(last - BREAKOUT_WINDOW, last).map((b) => b.high));
+
   let entry = null;
-  if (trend === 'up' && m5 != null) {
+  if (trend === 'up') {
     entry = {
-      low: round2(m5 * 0.985),
-      high: round2(m5 * 1.005),
-      basis: '回檔至 MA5 附近',
+      low: round2(price * 0.995),
+      high: round2(price * 1.005),
+      basis: isBreakout ? '多頭排列，且今日創20日新高（訊號較強）' : '多頭排列，目前價位附近',
     };
   } else if (trend === 'range' && support) {
     const high = atrNow != null ? support.price + atrNow : support.price * 1.02;
@@ -213,6 +245,7 @@ function computeTradeLevels(bars, { ma5 = [], ma20 = [], ma60 = [], atr = [], ad
     atr: atrNow != null ? round2(atrNow) : null,
     support: support ? { price: round2(support.price), date: support.date } : null,
     resistance: resistance ? { price: round2(resistance.price), date: resistance.date } : null,
+    isBreakout,
     entry,
     stop,
     target,
