@@ -4,17 +4,38 @@
 //
 // These are ARITHMETIC ON THE CHART, not a recommendation. Every level
 // carries a `basis` string naming exactly what produced it ("前波低點
-// 09/03", "MA20", "前波低點 - 0.5×ATR") so a number is never shown without
+// 09/03", "MA20", "前波低點 - 1.5×ATR") so a number is never shown without
 // the reason it exists — the same principle the loss-review rules were
 // rewritten around: a figure whose derivation is invisible gets read as a
 // finding it hasn't earned.
+//
+// The support/resistance pivots themselves are DESCRIPTIVE, not predictive:
+// backtested (5 years, TWII + 4 stocks, 1,605+ support touches) against a
+// randomized control (same levels shifted ±2~8%) and found no statistically
+// significant edge — real pivots held 67.0% of the time vs 68.5% for random
+// levels shifted to nearby prices (z=-1.29). They stay in the UI as "this is
+// where the last swing point was", which is true, not as "this will hold",
+// which the data does not support. The stop-loss buffer below IS backtested
+// on its own terms — not "does the level hold" but "how much noise does a
+// given buffer distance absorb before falsely triggering".
 //
 // Pure functions over Bar[] + already-computed indicator series. No
 // fetching, no DOM, no storage.
 
 const PIVOT_LOOKBACK = 3; // bars either side that a swing point must beat
-const STOP_ATR_BUFFER = 0.5; // how far below structure the stop sits
-const FALLBACK_STOP_ATR = 2; // stop distance when there's no support to lean on
+// How far below a support pivot the stop sits, in ATRs. Backtested against
+// 5 years of real bars (TWII/2330/2454/0050/2886, 1,458 stop triggers
+// total): a tight 0.5×ATR buffer got "stopped out by noise" (price closed
+// below the stop, then recovered back above the support level within 20
+// bars — i.e. the level was never really broken) 69.7% of the time. Each
+// step out reduces that further but with diminishing returns (0.5→1.0:
+// -11pp, 1.5→2.0: -7.5pp, 2.5→3.0: -5.5pp) while widening the stop also
+// means a bigger loss on the trades that really do break down and a worse
+// risk:reward for the same target. 1.5×ATR (53.6% shakeout) is the point
+// picked as a middle ground — not the value that minimizes shakeouts
+// (3×ATR, 32.9%), because that trades away too much on the other side.
+const STOP_ATR_BUFFER = 1.5;
+const FALLBACK_STOP_ATR = 2; // stop distance when there's no support to lean on (not separately backtested — same low-confidence status as before)
 const TARGET_R_MULTIPLE = 2; // R-multiple target when there's no resistance overhead
 const MIN_BARS = 30;
 
@@ -132,7 +153,7 @@ function computeTradeLevels(bars, { ma5 = [], ma20 = [], ma60 = [], atr = [], ad
     const buffer = atrNow != null ? atrNow * STOP_ATR_BUFFER : support.price * 0.01;
     stop = {
       price: round2(support.price - buffer),
-      basis: `前波低點 ${shortDate(support.date)} 之下${atrNow != null ? `（緩衝 0.5×ATR）` : ''}`,
+      basis: `前波低點 ${shortDate(support.date)} 之下${atrNow != null ? `（緩衝 ${STOP_ATR_BUFFER}×ATR）` : ''}`,
     };
   } else if (atrNow != null) {
     stop = {

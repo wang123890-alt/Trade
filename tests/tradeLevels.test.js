@@ -135,6 +135,28 @@ test('the stop sits below the support it leans on, and names it', () => {
   }
 });
 
+test('the stop buffer is 1.5x ATR below support, and the basis text names the actual multiplier used', () => {
+  // Backtest-driven (5y real bars, TWII+4 stocks): a 0.5x buffer had a 69.7%
+  // shakeout rate (stopped out, then price recovered above the support
+  // within 20 bars — the level was never really broken). 1.5x cuts that to
+  // 53.6% without giving up as much stop distance as the point that
+  // minimizes shakeouts (3x ATR). This test pins the value so a future
+  // change to the constant doesn't silently drift the basis text out of
+  // sync with what the app actually computed — that exact drift is why the
+  // basis string used to say a hardcoded "0.5×ATR" instead of reading the
+  // constant.
+  const bars = [...ramp(40, 100, 1), ...ramp(10, 141, -1, { from: 1 }).map((b, i) => ({ ...b, date: `2026-02-${String(i + 1).padStart(2, '0')}` }))];
+  const atr = computeATR(bars, 14);
+  const levels = computeTradeLevels(bars, {
+    ma5: computeMA(bars, 5), ma20: computeMA(bars, 20), ma60: computeMA(bars, 60), atr,
+  });
+  if (levels.support) {
+    const expectedStop = Math.round((levels.support.price - atr[bars.length - 1] * 1.5) * 100) / 100;
+    assert.equal(levels.stop.price, expectedStop);
+    assert.ok(levels.stop.basis.includes('1.5×ATR'), `basis should name the actual multiplier, got: ${levels.stop.basis}`);
+  }
+});
+
 test('risk:reward is computed from the same entry the stop and target are measured against', () => {
   const bars = ramp(80, 100, 1);
   const levels = computeTradeLevels(bars, {
