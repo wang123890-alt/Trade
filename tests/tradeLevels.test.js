@@ -66,24 +66,54 @@ test('computeTradeLevels returns null when there is not enough history', () => {
   assert.equal(computeTradeLevels([]), null);
 });
 
-test('computeTradeLevels reads a steady advance as 多頭排列 and offers an MA5 pullback zone', () => {
-  // Backtested (5y real bars): waiting for a pullback to MA20 lost badly to
-  // simply buying the day trend turned up (71.5% win / 0.08R vs 83.7% win /
-  // 0.13R, z=-5.53) — MA20 pullbacks were more often an early reversal
-  // warning than a discount. A shallower MA5 band tested statistically tied
-  // with not waiting at all, so that's what the entry zone is anchored to
-  // now, not because MA5 itself was shown to help.
+test('computeTradeLevels reads a steady advance as 多頭排列 and anchors the entry zone at the current price', () => {
+  // Round 1 (5 symbols): waiting for a pullback to MA20 lost badly to simply
+  // buying the day trend turned up (71.5% win / 0.08R vs 83.7% win / 0.13R,
+  // z=-5.53). A shallower MA5 pullback tested statistically tied with not
+  // waiting and shipped as a compromise.
+  // Round 2 (43 symbols, independent of round 1's tuning set): the MA5
+  // pullback lost outright to both "buy immediately" (largest sample,
+  // 84% of symbols positive) and "buy a 20-day-high breakout" (highest
+  // pooled return, also 84% of symbols positive, but its edge concentrates
+  // in a handful of big wins rather than being better on the typical
+  // symbol). Neither fully replaces the other, so the zone now anchors at
+  // the current price (the larger, more broadly-representative option) and
+  // a breakout day is flagged in the basis text rather than gated on —
+  // both signals visible, neither forced, pending more real-world usage.
   const bars = ramp(80, 100, 1);
-  const ma5 = computeMA(bars, 5);
   const levels = computeTradeLevels(bars, {
-    ma5, ma20: computeMA(bars, 20), ma60: computeMA(bars, 60), atr: computeATR(bars, 14),
+    ma5: computeMA(bars, 5), ma20: computeMA(bars, 20), ma60: computeMA(bars, 60), atr: computeATR(bars, 14),
   });
   assert.equal(levels.trend, 'up');
   assert.ok(levels.entry, 'an uptrend should offer an entry zone');
-  assert.ok(levels.entry.basis.includes('MA5'));
-  const last = bars.length - 1;
-  assert.ok(Math.abs(levels.entry.low - ma5[last] * 0.985) < 0.01);
-  assert.ok(Math.abs(levels.entry.high - ma5[last] * 1.005) < 0.01);
+  assert.ok(Math.abs(levels.entry.low - levels.price * 0.995) < 0.01);
+  assert.ok(Math.abs(levels.entry.high - levels.price * 1.005) < 0.01);
+});
+
+test('a fresh 20-day high while trend is up is flagged in the entry basis, without changing the zone itself', () => {
+  // A steady 1-point-a-day ramp with the default ±2 spread does NOT
+  // continuously make new highs (today's close has to clear a run of prior
+  // highs that are themselves 2 points above their own close) — so it's a
+  // valid "no breakout yet" baseline. A single outsized jump on top of it
+  // clears the prior 20-day high while staying inside an uptrend.
+  const base = ramp(60, 100, 1);
+  const lvBase = computeTradeLevels(base, {
+    ma5: computeMA(base, 5), ma20: computeMA(base, 20), ma60: computeMA(base, 60), atr: computeATR(base, 14),
+  });
+  assert.equal(lvBase.trend, 'up');
+  assert.equal(lvBase.isBreakout, false);
+  assert.ok(!lvBase.entry.basis.includes('訊號較強'));
+
+  const jump = bar('2026-03-01', 160, 175, 159, 174);
+  const barsBreakout = [...base, jump];
+  const lvBreakout = computeTradeLevels(barsBreakout, {
+    ma5: computeMA(barsBreakout, 5), ma20: computeMA(barsBreakout, 20), ma60: computeMA(barsBreakout, 60), atr: computeATR(barsBreakout, 14),
+  });
+  assert.equal(lvBreakout.trend, 'up');
+  assert.equal(lvBreakout.isBreakout, true);
+  assert.ok(lvBreakout.entry.basis.includes('訊號較強'));
+  // The flag changes the basis text only, not the zone's position.
+  assert.ok(Math.abs(lvBreakout.entry.low - lvBreakout.price * 0.995) < 0.01);
 });
 
 test('an uptrend still gets an entry zone whether price is above or below MA5 — no branch falls through to blank', () => {
