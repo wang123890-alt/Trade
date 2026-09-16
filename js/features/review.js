@@ -39,7 +39,7 @@ const LOW_WIN_RATE_THRESHOLD = 50;
  * letting it head a chart titled 常見虧損原因 would read as "your most
  * common loss cause is: unknown". Its real job is to keep the ruleset's
  * coverage visible instead of implying every loss has been explained. */
-const NO_PATTERN_TRIGGER = '無明顯型態';
+const NO_PATTERN_TRIGGER = '無適合歸類規則';
 
 /**
  * Replay the whole transaction history in order and record, for each BUY,
