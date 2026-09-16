@@ -66,30 +66,35 @@ test('computeTradeLevels returns null when there is not enough history', () => {
   assert.equal(computeTradeLevels([]), null);
 });
 
-test('computeTradeLevels reads a steady advance as 多頭排列 and offers an MA20 pullback zone', () => {
+test('computeTradeLevels reads a steady advance as 多頭排列 and offers an MA5 pullback zone', () => {
+  // Backtested (5y real bars): waiting for a pullback to MA20 lost badly to
+  // simply buying the day trend turned up (71.5% win / 0.08R vs 83.7% win /
+  // 0.13R, z=-5.53) — MA20 pullbacks were more often an early reversal
+  // warning than a discount. A shallower MA5 band tested statistically tied
+  // with not waiting at all, so that's what the entry zone is anchored to
+  // now, not because MA5 itself was shown to help.
   const bars = ramp(80, 100, 1);
+  const ma5 = computeMA(bars, 5);
   const levels = computeTradeLevels(bars, {
-    ma5: computeMA(bars, 5),
-    ma20: computeMA(bars, 20),
-    ma60: computeMA(bars, 60),
-    atr: computeATR(bars, 14),
+    ma5, ma20: computeMA(bars, 20), ma60: computeMA(bars, 60), atr: computeATR(bars, 14),
   });
   assert.equal(levels.trend, 'up');
   assert.ok(levels.entry, 'an uptrend should offer an entry zone');
-  assert.ok(levels.entry.basis.includes('MA20'));
-  // The pullback zone sits below the latest price, not at it — the point is
-  // to name a level to wait for rather than to chase the current print.
-  assert.ok(levels.entry.high < levels.price);
+  assert.ok(levels.entry.basis.includes('MA5'));
+  const last = bars.length - 1;
+  assert.ok(Math.abs(levels.entry.low - ma5[last] * 0.985) < 0.01);
+  assert.ok(Math.abs(levels.entry.high - ma5[last] * 1.005) < 0.01);
 });
 
-test('an uptrend whose price has ALREADY dropped through MA20 still gets a zone, not a blank', () => {
-  // Regression for a real case (2330, 2026-09-15): MA5>MA20>MA60 still
-  // stacked bullish while the close had slipped under MA20. Checking only
-  // "price above MA20, wait for the pullback" dropped the very situation
-  // the rule is for into the no-basis fallback.
-  // A SHARP two-bar drop, not a slow grind: price has to get under MA20
-  // while MA5 (still carrying four higher closes) stays above it. A longer
-  // decline drags MA5 down too and flips the ordering out of 多頭排列.
+test('an uptrend still gets an entry zone whether price is above or below MA5 — no branch falls through to blank', () => {
+  // Regression for a real case (2330, 2026-09-15) that broke the OLD
+  // MA20-branching version of this logic: MA5>MA20>MA60 stayed stacked
+  // bullish while close had already slipped under MA20, and the old code
+  // only handled "price above MA20, wait for pullback" — the pullback
+  // actually happening fell into a no-basis blank. The MA5-band version
+  // replacing it has no such branch to fall through: it's unconditional
+  // once trend is 'up', so this now holds by construction, but the case is
+  // still worth pinning so a future rewrite doesn't reintroduce the gap.
   const rising = ramp(70, 100, 1.5);
   const pullback = [188, 186].map((close, i) =>
     bar(`2026-03-${String(i + 1).padStart(2, '0')}`, close + 4, close + 5, close - 2, close)
@@ -105,7 +110,6 @@ test('an uptrend whose price has ALREADY dropped through MA20 still gets a zone,
   const levels = computeTradeLevels(bars, { ma5, ma20, ma60, atr: computeATR(bars, 14) });
   assert.equal(levels.trend, 'up');
   assert.ok(levels.entry, 'a pullback in progress must still produce a zone');
-  assert.ok(levels.entry.basis.includes('已回測'));
   assert.ok(levels.entry.low <= levels.entry.high);
 });
 
@@ -135,25 +139,27 @@ test('the stop sits below the support it leans on, and names it', () => {
   }
 });
 
-test('the stop buffer is 1.5x ATR below support, and the basis text names the actual multiplier used', () => {
-  // Backtest-driven (5y real bars, TWII+4 stocks): a 0.5x buffer had a 69.7%
-  // shakeout rate (stopped out, then price recovered above the support
-  // within 20 bars — the level was never really broken). 1.5x cuts that to
-  // 53.6% without giving up as much stop distance as the point that
-  // minimizes shakeouts (3x ATR). This test pins the value so a future
-  // change to the constant doesn't silently drift the basis text out of
-  // sync with what the app actually computed — that exact drift is why the
-  // basis string used to say a hardcoded "0.5×ATR" instead of reading the
-  // constant.
+test('the stop buffer is 1.0x ATR below support, and the basis text names the actual multiplier used', () => {
+  // Two rounds of backtesting landed here. Round 1 picked 1.5x by
+  // minimizing "shakeout rate" alone (0.5x: 69.7% shaken out, 1.5x: 53.6%).
+  // Round 2 measured what actually matters — real % return on a full
+  // round-trip simulation — and found return peaks around 1.0x (~1.23%/
+  // trade) and is already lower at 1.5x (~0.97%/trade): a tighter stop
+  // means more frequent but smaller losses, and on this data that trade-off
+  // paid off past the point round 1 stopped looking. This test pins the
+  // value so a future change to the constant doesn't silently drift the
+  // basis text out of sync with what the app actually computed — that
+  // exact drift is why the basis string used to say a hardcoded "0.5×ATR"
+  // instead of reading the constant, before round 1.
   const bars = [...ramp(40, 100, 1), ...ramp(10, 141, -1, { from: 1 }).map((b, i) => ({ ...b, date: `2026-02-${String(i + 1).padStart(2, '0')}` }))];
   const atr = computeATR(bars, 14);
   const levels = computeTradeLevels(bars, {
     ma5: computeMA(bars, 5), ma20: computeMA(bars, 20), ma60: computeMA(bars, 60), atr,
   });
   if (levels.support) {
-    const expectedStop = Math.round((levels.support.price - atr[bars.length - 1] * 1.5) * 100) / 100;
+    const expectedStop = Math.round((levels.support.price - atr[bars.length - 1] * 1.0) * 100) / 100;
     assert.equal(levels.stop.price, expectedStop);
-    assert.ok(levels.stop.basis.includes('1.5×ATR'), `basis should name the actual multiplier, got: ${levels.stop.basis}`);
+    assert.ok(levels.stop.basis.includes('1×ATR') || levels.stop.basis.includes('1.0×ATR'), `basis should name the actual multiplier, got: ${levels.stop.basis}`);
   }
 });
 
@@ -169,6 +175,26 @@ test('risk:reward is computed from the same entry the stop and target are measur
     const entryRef = (levels.entry.low + levels.entry.high) / 2;
     const expected = (levels.target.price - entryRef) / (entryRef - levels.stop.price);
     assert.ok(Math.abs(levels.riskReward - expected) < 0.02);
+  }
+});
+
+test('the target is always entry + 2R and is not capped at a nearer resistance', () => {
+  // Backtested (5y real bars, same entry/stop, only target changed):
+  // capping the target at the nearest resistance pivot averaged 1.23%
+  // return/trade at 73.6% win rate; letting it run to a fixed 2R instead
+  // averaged 2.20%/trade at a lower 47.4% win rate — cutting winners short
+  // at the first resistance overhead gave back more than the extra win
+  // rate was worth, consistent across 4 of 5 symbols tested.
+  const bars = ramp(80, 100, 1);
+  const levels = computeTradeLevels(bars, {
+    ma5: computeMA(bars, 5), ma20: computeMA(bars, 20), ma60: computeMA(bars, 60), atr: computeATR(bars, 14),
+  });
+  if (levels.target && levels.stop.price != null && levels.entry) {
+    const entryRef = (levels.entry.low + levels.entry.high) / 2;
+    const risk = entryRef - levels.stop.price;
+    const expected = Math.round((entryRef + risk * 2) * 100) / 100;
+    assert.equal(levels.target.price, expected);
+    assert.ok(levels.target.basis.includes('不受壓力價位封頂'));
   }
 });
 
