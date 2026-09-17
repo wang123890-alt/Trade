@@ -6,14 +6,6 @@ import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
 
-// Where each displayed price came from ("雅虎股市" for a live intraday quote,
-// "09/12收盤" for FinMind's stale daily close) and when this session last
-// fetched it, keyed by stockId. Only the price itself is persisted, so this
-// is in-memory and only labels prices fetched in this session — enough to
-// answer the question that kept coming up: "I pressed 更新 and the number
-// didn't move, is it broken?" A number tagged 收盤 hasn't moved because the
-// market's last settled price hasn't moved, which is very different from a
-// failed update; the fetch time answers "did 更新 actually just run".
 const priceMeta = {};
 
 function renderHoldingsView(container) {
@@ -48,12 +40,8 @@ function render(container) {
   container.querySelector('#export-excel').addEventListener('click', () => {
     const headers = ['代號', '名稱', '股數', '成本均價', '市價', '未實現損益', '損益%', 'AI解析'];
     const rows = positions.map((p) => [
-      p.stockId,
-      p.stockName,
-      p.totalQuantity,
-      Number(p.averageCost.toFixed(2)),
-      p.marketPrice ?? '',
-      p.unrealizedPnL ?? '',
+      p.stockId, p.stockName, p.totalQuantity, Number(p.averageCost.toFixed(2)),
+      p.marketPrice ?? '', p.unrealizedPnL ?? '',
       p.unrealizedPnLPercent != null ? Number(p.unrealizedPnLPercent.toFixed(2)) : '',
       StockAiAnalysisRepository.get(p.stockId),
     ]);
@@ -73,8 +61,6 @@ function render(container) {
     btn.disabled = true;
     btn.textContent = '更新中…';
     try {
-      // All holdings are fetched in parallel (see getLiveQuotes), so a
-      // portfolio costs about as long as a single stock.
       const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
       const prices = {};
       const fetchedAt = new Date().toISOString();
@@ -89,10 +75,6 @@ function render(container) {
           alert(`部分更新成功，這幾檔沒有查到資料：${missed}`);
         }
       } else {
-        // getLiveQuotes() never throws — it returns {} when every source
-        // came back empty for every stock. That used to fall through
-        // silently: no error, so the catch below never ran, and no update
-        // happened with zero on-screen indication.
         alert('全部更新失敗：雅虎股市與 FinMind 都查無資料，請稍後再試');
       }
     } catch (err) {
@@ -102,11 +84,10 @@ function render(container) {
   });
 
   const list = container.querySelector('#positions-list');
-  list.innerHTML = positions
-    .map((p) => {
-      const hasPrice = p.marketPrice != null;
-      const aiText = StockAiAnalysisRepository.get(p.stockId);
-      return `
+  list.innerHTML = positions.map((p) => {
+    const hasPrice = p.marketPrice != null;
+    const aiText = StockAiAnalysisRepository.get(p.stockId);
+    return `
       <div class="card" data-stock-id="${escapeHtml(p.stockId)}" style="padding:10px 14px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <button class="stock-link" data-action="view-detail" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; min-width:0; overflow:hidden;">
@@ -135,22 +116,19 @@ function render(container) {
             <span class="text-faint" style="font-size:11px;">展開/新增</span>
           </div>
           <div data-ai-body hidden style="margin-top:6px;">
-            ${aiText ? `<div style="font-size:12px; white-space:pre-wrap; color:var(--text-dim); margin-bottom:8px; border-left:2px solid var(--border); padding-left:8px;">${escapeHtml(aiText)}</div>` : ''}
+            ${aiText ? `<div class="ai-unmatched" style="margin-bottom:8px; border-left:2px solid var(--border); padding-left:8px;">${escapeHtml(aiText)}</div>` : ''}
             <div class="form-field">
-              <textarea data-ai-input placeholder="貼上這檔的AI詳解…" style="min-height:80px;"></textarea>
+              <textarea class="ai-preview" data-ai-input placeholder="貼上這檔的AI詳解…"></textarea>
             </div>
             <button class="btn btn-block" data-action="save-ai">${aiText ? '附加新內容' : '儲存AI解析'}</button>
           </div>
         </div>
-      </div>
-    `;
-    })
-    .join('');
+      </div>`;
+  }).join('');
 
   list.querySelectorAll('[data-action="view-detail"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const cardEl = btn.closest('[data-stock-id]');
-      navigate('detail', cardEl.getAttribute('data-stock-id'));
+      navigate('detail', btn.closest('[data-stock-id]').getAttribute('data-stock-id'));
     });
   });
 
@@ -179,7 +157,6 @@ function render(container) {
     btn.addEventListener('click', async () => {
       const cardEl = btn.closest('[data-stock-id]');
       const stockId = cardEl.getAttribute('data-stock-id');
-
       btn.disabled = true;
       btn.textContent = '取得中…';
       let price = null;
@@ -194,17 +171,11 @@ function render(container) {
         fetchError = err;
       }
       btn.textContent = '更新';
-
       if (!(price > 0)) {
-        // Show the actual reason when there is one — this is the only way
-        // to tell "every source really has nothing right now" from "a
-        // specific source errored out" without opening devtools, which
-        // matters when the person testing this is on a phone.
         alert(fetchError?.message || '自動取得市價失敗，請稍後再試');
         btn.disabled = false;
         return;
       }
-
       const result = await ManualPriceRepository.set(stockId, price);
       if (!result.ok) {
         alert(result.error?.message || '同步失敗');
@@ -216,21 +187,17 @@ function render(container) {
   });
 }
 
-/** Paste-and-classify import: user pastes freeform AI analysis covering
- * multiple stocks, we split it by which stock each line mentions, and show
- * an editable preview per stock before writing anything. */
 function renderAiImportPanel(panel, positions, container) {
   panel.innerHTML = `
     <div class="card">
       <div style="font-size:13.5px; font-weight:700; margin-bottom:8px;">貼上AI分析（會依股票代號/名稱自動分類）</div>
       <div class="form-field">
-        <textarea id="ai-paste-input" style="min-height:140px;" placeholder="貼上涵蓋多檔股票的AI分析文字…"></textarea>
+        <textarea id="ai-paste-input" class="ai-paste" placeholder="貼上涵蓋多檔股票的AI分析文字…"></textarea>
       </div>
       <button class="btn btn-primary" id="ai-classify-btn">分類並預覽</button>
       <div id="ai-preview-area" style="margin-top:12px;"></div>
     </div>
   `;
-
   panel.querySelector('#ai-classify-btn').addEventListener('click', () => {
     const text = panel.querySelector('#ai-paste-input').value;
     const stocks = positions.map((p) => ({ stockId: p.stockId, stockName: p.stockName }));
@@ -243,35 +210,26 @@ function renderAiPreview(panel, byStock, unmatched, positions, container) {
   const previewArea = panel.querySelector('#ai-preview-area');
   const stockNameById = Object.fromEntries(positions.map((p) => [p.stockId, p.stockName]));
   const matchedIds = Object.keys(byStock);
-
   if (matchedIds.length === 0) {
     previewArea.innerHTML = '<div class="empty-state">沒有比對到任何持股的股票代號或名稱，請確認貼上的文字有提到股票代號或全名</div>';
     return;
   }
-
   previewArea.innerHTML = `
-    ${matchedIds
-      .map(
-        (stockId) => `
+    ${matchedIds.map((stockId) => `
       <div style="border-top:1px solid var(--border); padding:10px 0;">
         <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; margin-bottom:6px;">
           <input type="checkbox" data-preview-include="${escapeHtml(stockId)}" checked>
           ${escapeHtml(stockNameById[stockId] || stockId)} <span class="text-faint" style="font-weight:500;">${escapeHtml(stockId)}</span>
         </label>
-        <textarea data-preview-text="${escapeHtml(stockId)}" style="min-height:70px;">${escapeHtml(byStock[stockId])}</textarea>
-      </div>
-    `
-      )
-      .join('')}
+        <textarea class="ai-preview" data-preview-text="${escapeHtml(stockId)}">${escapeHtml(byStock[stockId])}</textarea>
+      </div>`).join('')}
     ${unmatched ? `
       <div style="border-top:1px solid var(--border); padding:10px 0;">
         <div class="text-faint" style="font-size:11.5px; margin-bottom:4px;">未比對到任何持股，不會寫入（僅供確認沒有漏掉重要內容）</div>
-        <div style="font-size:12px; white-space:pre-wrap; color:var(--text-dim);">${escapeHtml(unmatched)}</div>
-      </div>
-    ` : ''}
+        <div class="ai-unmatched">${escapeHtml(unmatched)}</div>
+      </div>` : ''}
     <button class="btn btn-primary btn-block" id="ai-confirm-import" style="margin-top:10px;">確認匯入</button>
   `;
-
   previewArea.querySelector('#ai-confirm-import').addEventListener('click', async () => {
     const btn = previewArea.querySelector('#ai-confirm-import');
     btn.disabled = true;
@@ -281,13 +239,9 @@ function renderAiPreview(panel, byStock, unmatched, positions, container) {
       const checkbox = previewArea.querySelector(`[data-preview-include="${stockId}"]`);
       if (!checkbox.checked) continue;
       const newText = previewArea.querySelector(`[data-preview-text="${stockId}"]`).value;
-      const existing = StockAiAnalysisRepository.get(stockId);
-      updates[stockId] = appendAiAnalysis(existing, newText, today);
+      updates[stockId] = appendAiAnalysis(StockAiAnalysisRepository.get(stockId), newText, today);
     }
-    if (Object.keys(updates).length === 0) {
-      btn.disabled = false;
-      return;
-    }
+    if (Object.keys(updates).length === 0) { btn.disabled = false; return; }
     await StockAiAnalysisRepository.setMany(updates);
     render(container);
   });
