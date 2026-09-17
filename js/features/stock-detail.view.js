@@ -169,12 +169,19 @@ function renderTradeLevels(levels) {
         <div class="text-faint" style="font-size:12.5px;">K線資料不足30根，無法推算支撐壓力</div>
       </div>`;
   }
+  // escapeHtml() on every field, not just label/basis: trendLabel and other
+  // basis text (e.g. "MA5<MA20<MA60") contain literal < and > from the app's
+  // own strings, not just user input. A raw < in innerHTML opens a bogus tag
+  // that silently swallows every sibling after it into its own subtree, which
+  // rendered as all the rows below it collapsing into one horizontal flex
+  // line instead of stacking — not a CSS bug, a markup-injection bug from
+  // trusted-looking text.
   const row = (label, value, basis, valueClass = '') => `
     <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:5px 0; border-bottom:1px solid var(--border);">
-      <div style="font-size:12.5px; min-width:64px;">${label}</div>
+      <div style="font-size:12.5px; min-width:64px;">${escapeHtml(label)}</div>
       <div style="flex:1; text-align:right;">
-        <div class="${valueClass}" style="font-size:13px; font-weight:700;">${value}</div>
-        ${basis ? `<div class="text-faint" style="font-size:10.5px; margin-top:1px;">${basis}</div>` : ''}
+        <div class="${valueClass}" style="font-size:13px; font-weight:700;">${escapeHtml(value)}</div>
+        ${basis ? `<div class="text-faint" style="font-size:10.5px; margin-top:1px;">${escapeHtml(basis)}</div>` : ''}
       </div>
     </div>`;
   const rows = [
