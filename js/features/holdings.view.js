@@ -8,6 +8,25 @@ import { navigate } from '../router.js';
 
 const priceMeta = {};
 
+function fitAiTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const cap = Math.round(window.innerHeight * 0.5);
+  const next = Math.min(Math.max(el.scrollHeight, 72), cap);
+  el.style.height = `${next}px`;
+  el.style.overflowY = el.scrollHeight > cap ? 'auto' : 'hidden';
+}
+
+function bindFitAiTextareas(root) {
+  if (!root) return;
+  root.querySelectorAll('textarea.ai-paste, textarea.ai-preview').forEach((el) => {
+    fitAiTextarea(el);
+    if (el.dataset.fitBound) return;
+    el.dataset.fitBound = '1';
+    el.addEventListener('input', () => fitAiTextarea(el));
+  });
+}
+
 function renderHoldingsView(container) {
   render(container);
 }
@@ -136,6 +155,7 @@ function render(container) {
     row.addEventListener('click', () => {
       const body = row.parentElement.querySelector('[data-ai-body]');
       body.hidden = !body.hidden;
+      if (!body.hidden) bindFitAiTextareas(body);
     });
   });
 
@@ -198,6 +218,7 @@ function renderAiImportPanel(panel, positions, container) {
       <div id="ai-preview-area" style="margin-top:12px;"></div>
     </div>
   `;
+  bindFitAiTextareas(panel);
   panel.querySelector('#ai-classify-btn').addEventListener('click', () => {
     const text = panel.querySelector('#ai-paste-input').value;
     const stocks = positions.map((p) => ({ stockId: p.stockId, stockName: p.stockName }));
@@ -230,6 +251,7 @@ function renderAiPreview(panel, byStock, unmatched, positions, container) {
       </div>` : ''}
     <button class="btn btn-primary btn-block" id="ai-confirm-import" style="margin-top:10px;">確認匯入</button>
   `;
+  bindFitAiTextareas(previewArea);
   previewArea.querySelector('#ai-confirm-import').addEventListener('click', async () => {
     const btn = previewArea.querySelector('#ai-confirm-import');
     btn.disabled = true;
