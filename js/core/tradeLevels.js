@@ -1,5 +1,6 @@
 // Reference price levels derived from the K-line and indicators.
 // 2026-09-17: gated entry + MA exit flag. See docs/2026-09-17-entry-exit-backtest.md
+// 2026-09-18: range state wording = 橫盤（盤整） when MAs cross / tangle / unordered.
 
 const PIVOT_LOOKBACK = 3;
 const STOP_ATR_BUFFER = 1.0;
@@ -79,7 +80,7 @@ function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], a
     highs.filter((p) => p.price > price).sort((a, b) => a.price - b.price)[0] ?? null;
 
   let trend = "range";
-  let trendLabel = "區間盤整";
+  let trendLabel = "橫盤（盤整：均線交叉、糾結或無序）";
   if (m5 != null && m20 != null && m60 != null) {
     if (m5 > m20 && m20 > m60) {
       trend = "up";
@@ -94,7 +95,7 @@ function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], a
     last >= BREAKOUT_WINDOW && price > priorMaxHigh(bars, last, BREAKOUT_WINDOW);
 
   const skip = [];
-  if (trend !== "up") skip.push(trend === "down" ? "空頭排列" : "非多頭排列（震盪不進）");
+  if (trend !== "up") skip.push(trend === "down" ? "空頭排列" : "非多頭排列（橫盤/盤整不進）");
   if (!isBreakout) skip.push("未創20日新高");
   if (adxNow == null || adxNow < ENTRY_ADX_MIN) skip.push(`ADX未達${ENTRY_ADX_MIN}`);
   if (!volOk) skip.push(`量能未達${ENTRY_VOL_RATIO}×二十日均量`);
