@@ -41,8 +41,6 @@ a {
   color: var(--accent);
 }
 
-/* ---------- App shell ---------- */
-
 #app {
   display: flex;
   flex-direction: column;
@@ -80,7 +78,6 @@ main {
   padding-bottom: calc(var(--nav-height) + 16px);
 }
 
-/* Bottom tab bar — the folded/narrow default */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -116,12 +113,10 @@ main {
   height: 20px;
 }
 
-/* Sidebar — the unfolded/wide layout */
 .sidebar-nav {
   display: none;
 }
 
-/* ---------- Wide layout (Pixel Fold unfolded, tablet, desktop) ---------- */
 @media (min-width: 640px) {
   #app {
     flex-direction: row;
@@ -186,7 +181,6 @@ main {
     max-width: 1200px;
   }
 
-  /* Two-column content for wide screens where a view opts in */
   .wide-two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -194,8 +188,6 @@ main {
     align-items: start;
   }
 }
-
-/* ---------- Shared UI atoms ---------- */
 
 .card {
   background: var(--panel);
@@ -359,4 +351,35 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* AI analysis paste + classify preview — default form textarea (72px) is too short to read */
+textarea.ai-paste {
+  min-height: 240px;
+  max-height: 70vh;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+textarea.ai-preview {
+  width: 100%;
+  min-height: 220px;
+  max-height: 70vh;
+  resize: vertical;
+  line-height: 1.55;
+  font-size: 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 12px;
+  color: var(--text);
+}
+
+.ai-unmatched {
+  max-height: 40vh;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--text-dim);
 }
