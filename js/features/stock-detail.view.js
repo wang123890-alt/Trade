@@ -16,12 +16,10 @@ async function renderStockDetailView(container, stockId) {
     container.innerHTML = '<div class="empty-state">未指定標的</div>';
     return;
   }
-
   const { transactions, matches } = recompute();
   const stockTx = transactions.filter((t) => t.stockId === stockId);
   const lastTx = stockTx.length > 0 ? stockTx[stockTx.length - 1] : null;
   const stockName = lastTx ? lastTx.stockName : stockId;
-
   container.innerHTML = `
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
       <button class="icon-btn" id="back-btn">
@@ -34,9 +32,7 @@ async function renderStockDetailView(container, stockId) {
     <div id="notes-area"></div>
     <div id="review-area"></div>
   `;
-
   container.querySelector('#back-btn').addEventListener('click', () => window.history.back());
-
   await loadAndRenderChart(container, stockId, stockTx);
   renderNotes(container, stockId);
   renderStockLossReview(container, stockId, matches, transactions);
@@ -47,11 +43,6 @@ async function loadAndRenderChart(container, stockId, stockTx) {
   let bars;
   let sourceLabel;
   try {
-    // Yahoo first: its daily bars include today's in-progress session,
-    // while FinMind's free-tier dataset lags by several days (measured
-    // 2026-09-14: FinMind stopped at 09-11, Yahoo had 09-14). FinMind is
-    // still the fallback since it's the CORS-friendly, no-relay-needed
-    // source when Yahoo's relay chain has nothing.
     bars = await YahooFinanceProvider.getKLine(stockId);
     sourceLabel = '雅虎股市';
   } catch (err) {
@@ -63,12 +54,10 @@ async function loadAndRenderChart(container, stockId, stockTx) {
       return;
     }
   }
-
   if (bars.length === 0) {
     chartArea.innerHTML = '<div class="empty-state">查無此標的的K線資料</div>';
     return;
   }
-
   renderChartFromBars(chartArea, bars, stockTx, { source: sourceLabel, fetchedAt: new Date().toISOString() });
 }
 
@@ -105,31 +94,19 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const macd = computeMACD(bars);
   const dmi = computeDMI(bars);
   const atr = computeATR(bars, 14);
-  const tradeLevels = computeTradeLevels(bars, { ma5, ma20, ma60, atr, adx: dmi.adx });
+  const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx });
   const chartLevels = levelsForChart(tradeLevels);
-
   const lastIndex = bars.length - 1;
   const cross = detectMACross(ma5, ma20, lastIndex);
   const macdCross = detectMACross(macd.macdLine, macd.signalLine, lastIndex);
   const dmiCross = detectMACross(dmi.plusDI, dmi.minusDI, lastIndex);
   const lastRSI = rsi[lastIndex];
   const lastADX = dmi.adx[lastIndex];
-
-  const markers = stockTx
-    .map((tx) => {
-      const idx = bars.findIndex((b) => b.date === tx.dateTime.slice(0, 10));
-      if (idx === -1) return null;
-      return {
-        // Color alone (紅=買, 綠=賣) already tells buy from sell, so the
-        // label only needs the price — keeps it short enough to not
-        // collide with the candle or a nearby marker.
-        index: idx,
-        label: `${tx.price}`,
-        color: tx.type === 'BUY' ? 'var(--red)' : 'var(--green)',
-      };
-    })
-    .filter(Boolean);
-
+  const markers = stockTx.map((tx) => {
+    const idx = bars.findIndex((b) => b.date === tx.dateTime.slice(0, 10));
+    if (idx === -1) return null;
+    return { index: idx, label: `${tx.price}`, color: tx.type === 'BUY' ? 'var(--red)' : 'var(--green)' };
+  }).filter(Boolean);
   const signalLines = [];
   if (cross === 'golden') signalLines.push('MA5 / MA20 出現黃金交叉，短均線轉強');
   if (cross === 'death') signalLines.push('MA5 / MA20 出現死亡交叉，短均線轉弱');
@@ -140,13 +117,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   if (dmiCross === 'golden') signalLines.push('DMI：+DI上穿-DI，趨勢轉多');
   if (dmiCross === 'death') signalLines.push('DMI：+DI下穿-DI，趨勢轉空');
   if (lastADX != null && lastADX >= 25) signalLines.push(`ADX 為 ${lastADX.toFixed(0)}，目前趨勢力道${lastADX >= 40 ? '很強' : '偏強'}`);
-
-  // Which candle is currently tap-selected (shows a vertical marker line on
-  // the chart) — kept in this closure, not on the DOM, so a re-render for a
-  // new selection only needs to rebuild the SVG itself, not the whole
-  // chartArea (legend tags and signal text above/below stay untouched).
   let selectedIndex = null;
-
   function buildChartSvg() {
     return renderKLineChart(bars, {
       maSeries: [
@@ -155,15 +126,9 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
         { label: 'MA20', color: '#f0abfc', values: ma20 },
         { label: 'MA60', color: 'var(--text-faint)', values: ma60 },
       ],
-      markers,
-      rsi,
-      macd,
-      dmi,
-      selectedIndex,
-      levels: chartLevels,
+      markers, rsi, macd, dmi, selectedIndex, levels: chartLevels,
     });
   }
-
   chartArea.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -186,12 +151,6 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
         : '<div class="text-faint" style="font-size:12.5px;">目前沒有明顯的均線交叉或RSI極端訊號</div>'}
     </div>
   `;
-
-  // Tap a candle to mark it with a vertical line (see renderKLineChart's
-  // hit targets); tapping the same one again clears it. Delegated on the
-  // wrap div itself since only its innerHTML gets replaced per selection —
-  // a listener attached directly to the <svg> would be discarded along with
-  // the old markup on every re-render.
   const svgWrap = chartArea.querySelector('#kline-svg-wrap');
   svgWrap.addEventListener('click', (e) => {
     const hit = e.target.closest('[data-index]');
@@ -202,10 +161,6 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   });
 }
 
-/** The 參考價位 block. Every row shows the level AND the `basis` that
- * produced it, because a bare number invites being read as a call. The
- * heading and footnote say plainly that these are levels computed off the
- * chart, not a recommendation to act. */
 function renderTradeLevels(levels) {
   if (!levels) {
     return `
@@ -214,7 +169,6 @@ function renderTradeLevels(levels) {
         <div class="text-faint" style="font-size:12.5px;">K線資料不足30根，無法推算支撐壓力</div>
       </div>`;
   }
-
   const row = (label, value, basis, valueClass = '') => `
     <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:5px 0; border-bottom:1px solid var(--border);">
       <div style="font-size:12.5px; min-width:64px;">${label}</div>
@@ -223,21 +177,22 @@ function renderTradeLevels(levels) {
         ${basis ? `<div class="text-faint" style="font-size:10.5px; margin-top:1px;">${basis}</div>` : ''}
       </div>
     </div>`;
-
   const rows = [
     row('目前狀態', `${levels.price}`, `${levels.trendLabel}${levels.adx != null ? ` · ADX ${levels.adx}` : ''}${levels.atr != null ? ` · ATR ${levels.atr}` : ''}`),
     levels.resistance ? row('最近壓力', `${levels.resistance.price}`, `前波高點 ${levels.resistance.date.slice(5).replace('-', '/')}`) : '',
     levels.support ? row('最近支撐', `${levels.support.price}`, `前波低點 ${levels.support.date.slice(5).replace('-', '/')}`) : '',
     levels.entry
       ? row('參考進場區', `${levels.entry.low} ~ ${levels.entry.high}`, levels.entry.basis)
-      : row('參考進場區', '—', levels.trend === 'down' ? '空頭排列，此處不推算進場區' : '無明確依據'),
+      : row('參考進場區', '—', (levels.entrySkip && levels.entrySkip.length) ? levels.entrySkip.join('；') : (levels.trend === 'down' ? '空頭排列，此處不推算進場區' : '條件未齊')),
+    levels.exit
+      ? row('參考出場', levels.exit.signal ? '條件成立' : '尚未成立', levels.exit.basis, levels.exit.signal ? 'text-green' : '')
+      : '',
     row('參考停損', levels.stop.price != null ? `${levels.stop.price}` : '—', levels.stop.basis, 'text-green'),
     levels.target ? row('參考目標', `${levels.target.price}`, levels.target.basis, 'text-red') : '',
     levels.riskReward != null
       ? row('風險報酬比', `1 : ${levels.riskReward}`, levels.riskReward >= 2 ? '達到常見的 1:2 門檻' : '低於常見的 1:2 門檻')
       : '',
   ].join('');
-
   return `
     <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
       <div style="font-size:13px; font-weight:700; margin-bottom:2px;">參考價位</div>
@@ -250,8 +205,6 @@ function renderTradeLevels(levels) {
 
 function renderNotes(container, stockId) {
   const area = container.querySelector('#notes-area');
-  const notes = StockNotesRepository.getAll(stockId);
-
   area.innerHTML = `
     <div class="card">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
@@ -264,7 +217,6 @@ function renderNotes(container, stockId) {
       <div id="notes-list" style="margin-top:14px;"></div>
     </div>
   `;
-
   function renderList() {
     const list = area.querySelector('#notes-list');
     const current = StockNotesRepository.getAll(stockId);
@@ -272,19 +224,12 @@ function renderNotes(container, stockId) {
       list.innerHTML = '<div class="empty-state">還沒有筆記</div>';
       return;
     }
-    list.innerHTML = [...current]
-      .reverse()
-      .map(
-        (n) => `
+    list.innerHTML = [...current].reverse().map((n) => `
       <div style="border-left:2px solid var(--border); padding-left:12px; margin-bottom:12px;">
         <div class="text-faint" style="font-size:11px; margin-bottom:4px;">${formatDate(n.time)}</div>
         <div style="font-size:12.5px; line-height:1.6;">${escapeHtml(n.text)}</div>
-      </div>
-    `
-      )
-      .join('');
+      </div>`).join('');
   }
-
   area.querySelector('#note-submit').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const input = area.querySelector('#note-input');
@@ -296,7 +241,6 @@ function renderNotes(container, stockId) {
     input.value = '';
     renderList();
   });
-
   renderList();
 }
 
@@ -304,28 +248,15 @@ function renderStockLossReview(container, stockId, matches, transactions) {
   const area = container.querySelector('#review-area');
   const stockMatches = matches.filter((m) => m.stockId === stockId);
   const losses = stockMatches.filter((m) => m.realizedPnL < 0);
-
-  if (losses.length === 0) {
-    area.innerHTML = '';
-    return;
-  }
-
+  if (losses.length === 0) { area.innerHTML = ''; return; }
   const transactionsById = Object.fromEntries(transactions.map((t) => [t.id, t]));
-  const strategySummariesByName = Object.fromEntries(
-    groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s])
-  );
-  // Facts are derived from the WHOLE history (portfolio weight and
-  // averaging-down only mean anything in the context of every other
-  // position), even though only this stock's losses get reviewed here.
+  const strategySummariesByName = Object.fromEntries(groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s]));
   const buyFacts = computeBuyFacts(transactions, matches);
   const reviewed = attachLossReviews(losses, transactionsById, strategySummariesByName, { buyFacts });
-
   area.innerHTML = `
     <div class="card">
       <div style="font-size:15px; font-weight:700; margin-bottom:10px;">虧損覆盤</div>
-      ${reviewed
-        .map(
-          (m) => `
+      ${reviewed.map((m) => `
         <div style="padding:10px 0; border-bottom:1px solid var(--border);">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div class="text-faint" style="font-size:11.5px;">${formatDate(m.closedAt)} · ${m.buyPrice} → ${m.sellPrice}</div>
@@ -337,12 +268,8 @@ function renderStockLossReview(container, stockId, matches, transactions) {
           <div style="margin-top:6px; font-size:12px; color:var(--text-dim); line-height:1.6;">
             ${m.review.suggestions.map((s) => `・${escapeHtml(s)}`).join('<br>')}
           </div>
-        </div>
-      `
-        )
-        .join('')}
-    </div>
-  `;
+        </div>`).join('')}
+    </div>`;
 }
 
 export { renderStockDetailView };
