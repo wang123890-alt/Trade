@@ -63,6 +63,85 @@ function isHeaderLineFor(line, stock) {
   return remaining.length <= 4;
 }
 
+/** Looser than isHeaderLineFor: matches the Excel-export note's own
+ * instruction ("每檔股票另起一段，且每段開頭要標代號") — a paragraph
+ * whose very first characters are the stock's id or name, even though the
+ * rest of that same line runs straight into the analysis text instead of
+ * stopping ("2059 川湖：最佳動作是…續抱…" all on one line, no separate
+ * header line). Position-based on purpose: a stock merely mentioned
+ * mid-paragraph (a cross-reference like "…你已有 2330 與正2…" inside 0050's
+ * own paragraph) doesn't start the line, so it can't win this check the way
+ * it could inflate a same-line mention count. */
+function startsWithStock(line, stock) {
+  const s = line.replace(LIST_MARKER_RE, '').trimStart();
+  if (s.startsWith(stock.stockId)) return true;
+  if (stock.stockName && s.startsWith(stock.stockName)) return true;
+  return false;
+}
+
+function dominantMentionOwner(candidateLines, stocks) {
+  const counts = new Map();
+  for (const line of candidateLines) {
+    for (const s of stocks) {
+      if (lineMentionsStock(line, s)) counts.set(s.stockId, (counts.get(s.stockId) || 0) + 1);
+    }
+  }
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  // Confident only if that stock is the only one mentioned at all, or
+  // clearly dominates the others — a chunk that name-drops several stocks
+  // roughly evenly (a ranking table, a "here's my priority order" list) is
+  // shared commentary, not any one stock's section, so it's left unmatched
+  // instead of being guessed onto whichever stock happens to be listed
+  // first.
+  if (sorted.length === 1) return stocks.find((s) => s.stockId === sorted[0][0]);
+  if (sorted.length > 1 && sorted[0][1] >= 2 && sorted[0][1] > sorted[1][1] * 2) {
+    return stocks.find((s) => s.stockId === sorted[0][0]);
+  }
+  return undefined;
+}
+
+/** Owner of a whole "---"-divided block: a clean header line, or whichever
+ * stock's mentions clearly dominate the block. Deliberately does NOT use
+ * startsWithStock — a multi-paragraph block's first line is only that
+ * FIRST paragraph's header, not the whole block's, so trusting it here
+ * would wrongly claim every later paragraph for whichever stock happens to
+ * be mentioned first (this is exactly what let a 9-stock block collapse
+ * onto stock #1 during testing). Paragraph-level ownerOfParagraph() is
+ * where that inline-header check is safe to use. */
+function ownerOfBlock(candidateLines, stocks) {
+  const firstNonBlank = candidateLines.find((l) => l.trim() !== '');
+  const headerOwner = firstNonBlank && stocks.find((s) => isHeaderLineFor(firstNonBlank, s));
+  return headerOwner || dominantMentionOwner(candidateLines, stocks);
+}
+
+/** Owner of a single blank-line-delimited paragraph: same as ownerOfBlock,
+ * plus the looser startsWithStock check in between — safe here because a
+ * paragraph's first line legitimately represents its own whole content. */
+function ownerOfParagraph(paragraphLines, stocks) {
+  const firstNonBlank = paragraphLines.find((l) => l.trim() !== '');
+  if (firstNonBlank) {
+    const headerOwner = stocks.find((s) => isHeaderLineFor(firstNonBlank, s));
+    if (headerOwner) return headerOwner;
+    const inlineOwner = stocks.find((s) => startsWithStock(firstNonBlank, s));
+    if (inlineOwner) return inlineOwner;
+  }
+  return dominantMentionOwner(paragraphLines, stocks);
+}
+
+function splitIntoParagraphs(rawBlock) {
+  const paragraphs = [];
+  let current = [];
+  for (const line of rawBlock) {
+    if (line.trim() === '') {
+      if (current.length) { paragraphs.push(current); current = []; }
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.length) paragraphs.push(current);
+  return paragraphs;
+}
+
 function classifyBySections(lines, stocks, dividerRe) {
   const blocks = [];
   let current = [];
@@ -78,39 +157,40 @@ function classifyBySections(lines, stocks, dividerRe) {
 
   const byStock = {};
   const unmatchedParts = [];
+  const attach = (stockId, text) => {
+    byStock[stockId] = byStock[stockId] ? `${byStock[stockId]}\n\n${text}` : text;
+  };
 
   for (const rawBlock of blocks) {
     const joined = rawBlock.join('\n').trim();
     if (!joined) continue;
 
-    const firstNonBlank = rawBlock.find((l) => l.trim() !== '');
-    let owner = firstNonBlank ? stocks.find((s) => isHeaderLineFor(firstNonBlank, s)) : undefined;
-
-    if (!owner) {
-      const counts = new Map();
-      for (const line of rawBlock) {
-        for (const s of stocks) {
-          if (lineMentionsStock(line, s)) counts.set(s.stockId, (counts.get(s.stockId) || 0) + 1);
-        }
-      }
-      const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-      // A block is confidently "about" one stock only if that stock is the
-      // only one mentioned at all, or clearly dominates the others — a
-      // block that name-drops several stocks roughly evenly (a ranking
-      // table, a "here's my priority order" list) is shared commentary,
-      // not any one stock's section, so it goes to unmatched instead of
-      // being guessed onto whichever stock happens to be listed first.
-      if (sorted.length === 1) {
-        owner = stocks.find((s) => s.stockId === sorted[0][0]);
-      } else if (sorted.length > 1 && sorted[0][1] >= 2 && sorted[0][1] > sorted[1][1] * 2) {
-        owner = stocks.find((s) => s.stockId === sorted[0][0]);
-      }
+    const owner = ownerOfBlock(rawBlock, stocks);
+    if (owner) {
+      attach(owner.stockId, joined);
+      continue;
     }
 
-    if (owner) {
-      byStock[owner.stockId] = byStock[owner.stockId] ? `${byStock[owner.stockId]}\n\n${joined}` : joined;
-    } else {
+    // The whole "---"-divided block doesn't resolve to one owner — either no
+    // line in it reads as a header, or it name-drops several stocks without
+    // one dominating. Before writing the whole thing off as unmatched, try
+    // splitting it on blank lines: a report that separates stocks by
+    // paragraph rather than putting "---" between every single one (this
+    // block might just be "the whole list" sitting after one intro divider)
+    // still has one stock per paragraph, even though bundling them together
+    // made the whole-block mention count look ambiguous (e.g. the 0050
+    // paragraph mentioning "2330" in passing).
+    const paragraphs = splitIntoParagraphs(rawBlock);
+    if (paragraphs.length <= 1) {
       unmatchedParts.push(joined);
+      continue;
+    }
+    for (const para of paragraphs) {
+      const paraJoined = para.join('\n').trim();
+      if (!paraJoined) continue;
+      const paraOwner = ownerOfParagraph(para, stocks);
+      if (paraOwner) attach(paraOwner.stockId, paraJoined);
+      else unmatchedParts.push(paraJoined);
     }
   }
 

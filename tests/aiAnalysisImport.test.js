@@ -103,6 +103,44 @@ test('section mode: a block naming several stocks roughly evenly (a ranking tabl
   assert.ok(unmatched.includes('排名'));
 });
 
+test('section mode: one "---" only before the list (not between every stock) still splits per-paragraph, and cross-references inside a paragraph don\'t steal it', () => {
+  // Reproduces a real report the user pasted: a single "---" separates the
+  // intro from the whole list, and every stock is its own blank-line
+  // paragraph starting "code name：analysis text" all on one line (the
+  // Excel-export note's own "每檔股票另起一段，且每段開頭要標代號"
+  // instruction) rather than a standalone header line. Before the fix, the
+  // 9-paragraph block either collapsed entirely into unmatched (ambiguous
+  // whole-block mention count) or, in an intermediate broken version,
+  // wrongly claimed every paragraph for whichever stock's paragraph came
+  // first.
+  const nineStocks = [
+    { stockId: '2059', stockName: '川湖' },
+    { stockId: '2330', stockName: '台積電' },
+    { stockId: '0050', stockName: '元大台灣50' },
+    { stockId: '00631L', stockName: '元大台灣50正2' },
+  ];
+  const text = [
+    '依現價、成本、部位大小，近期各檔最佳動作如下。',
+    '---',
+    '2059 川湖：最佳動作是續抱、停止加碼。2 股已賺約 42%。',
+    '',
+    '2330 台積電：最佳動作是當核心續抱、現價不加。20 股接近成本。',
+    '',
+    '0050 元大台灣50：最佳動作是續抱當底倉。你已有 2330 與正2，再加 0050 只是重複押權值。',
+    '',
+    '00631L 元大台灣50正2：最佳動作是反彈減碼、不再加碼。單日兩倍不適合作底倉，且與 2330、0050 高度重疊。',
+  ].join('\n');
+  const { byStock, unmatched } = classifyAiAnalysisText(text, nineStocks);
+  assert.ok(byStock['2059'].includes('停止加碼'));
+  assert.ok(byStock['2330'].includes('當核心續抱'));
+  assert.ok(byStock['0050'].includes('續抱當底倉'));
+  assert.ok(!byStock['2330'].includes('續抱當底倉')); // 0050's cross-reference to 2330 didn't steal its own paragraph
+  assert.ok(byStock['00631L'].includes('反彈減碼'));
+  assert.ok(!byStock['2330'].includes('反彈減碼'));
+  assert.ok(!byStock['0050'].includes('反彈減碼'));
+  assert.ok(unmatched.includes('依現價、成本、部位大小'));
+});
+
 test('appendAiAnalysis returns the new text as-is when there is nothing to append to', () => {
   assert.equal(appendAiAnalysis('', '第一次的分析', '2026/09/14'), '第一次的分析');
   assert.equal(appendAiAnalysis(null, '第一次的分析', '2026/09/14'), '第一次的分析');
