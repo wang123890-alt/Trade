@@ -1,3 +1,1 @@
-// test line 1
-// test line 2
-export {};
+SEE_LOCAL_FILE
