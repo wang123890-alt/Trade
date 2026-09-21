@@ -6,7 +6,7 @@ import { renderKLineChart } from '../core/chart.js';
 import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
 import { attachLossReviews, computeBuyFacts } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
-import { formatMoney, formatDate, formatDateTime, formatPercent, pnlClass, escapeHtml } from '../utils/format.js';
+import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
 
 const RSI_OVERBOUGHT = 70;
 const RSI_OVERSOLD = 30;
@@ -106,12 +106,6 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx });
   const chartLevels = levelsForChart(tradeLevels);
   const lastIndex = bars.length - 1;
-  const last = bars[lastIndex];
-  const prev = bars[lastIndex - 1];
-  const fiveAgo = bars.length >= 6 ? bars[lastIndex - 5] : null;
-  const dayPct = prev && prev.close ? ((last.close - prev.close) / prev.close) * 100 : null;
-  const fivePct = fiveAgo && fiveAgo.close ? ((last.close - fiveAgo.close) / fiveAgo.close) * 100 : null;
-  const dayChg = prev ? last.close - prev.close : null;
   const cross = detectMACross(ma5, ma20, lastIndex);
   const macdCross = detectMACross(macd.macdLine, macd.signalLine, lastIndex);
   const dmiCross = detectMACross(dmi.plusDI, dmi.minusDI, lastIndex);
@@ -145,22 +139,16 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
     });
   }
   chartArea.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; flex-wrap:nowrap; overflow-x:auto;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:nowrap; overflow-x:auto;">
       <div style="display:flex; gap:8px; flex-wrap:nowrap;">
         <span class="tag tag-accent">MA5 ${maArrow(ma5, lastIndex)}</span>
         <span class="tag" style="color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.25);">MA10 ${maArrow(ma10, lastIndex)}</span>
         <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20 ${maArrow(ma20, lastIndex)}</span>
         <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60 ${maArrow(ma60, lastIndex)}</span>
-        <span class="tag" style="color:var(--red);">+DI</span>
-        <span class="tag" style="color:var(--green);">-DI</span>
-        <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">ADX</span>
       </div>
-      ${meta.fetchedAt ? `<div class="text-faint" style="font-size:11px; white-space:nowrap;">${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新</div>` : ''}
     </div>
-    <div style="display:flex; gap:12px; align-items:baseline; flex-wrap:nowrap; overflow-x:auto; margin-bottom:10px; font-size:13px; font-weight:600; white-space:nowrap;">
-      <span>漲跌 ${dayChg != null ? `${dayChg > 0 ? '+' : ''}${dayChg.toFixed(2)}` : '—'}</span>
-      <span class="${pnlClass(dayPct)}">單日 ${formatPercent(dayPct)}</span>
-      <span class="${pnlClass(fivePct)}">5日 ${formatPercent(fivePct)}</span>
+    <div style="margin-bottom:10px; font-size:11px; color:var(--text-faint);">
+      ${meta.fetchedAt ? `${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新` : ''}
     </div>
     <div id="kline-svg-wrap">${buildChartSvg()}</div>
     ${renderTradeLevels(tradeLevels)}
