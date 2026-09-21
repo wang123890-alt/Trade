@@ -43,7 +43,7 @@ function renderWatchlistView(container) {
       <button class="btn btn-primary btn-block" id="watch-add-btn">加入觀察</button>
     </div>
 
-    <div id="watch-sort" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;"></div>
+    <div id="watch-sort" style="display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; margin-bottom:10px;"></div>
     <div id="watch-list"></div>
   `;
 
@@ -107,11 +107,10 @@ function rowHtml(w, snap, loading) {
           <div style="font-size:14.5px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border);">
             ${escapeHtml(w.stockName)} <span class="text-faint" style="font-weight:500; font-size:12px;">${escapeHtml(w.stockId)}</span>
           </div>
-          <div style="margin-top:6px; font-size:13px; font-weight:700;">
+          <div style="margin-top:6px; font-size:13px; font-weight:700; white-space:nowrap;">
             ${snap ? snap.price : '—'}
-            <span class="${dayCls}" style="font-weight:600; font-size:12px; margin-left:6px;">${snap ? fmtNum(snap.dayChange) : ''} ${snap ? fmtPct(snap.dayPct) : ''}</span>
+            <span class="${dayCls}" style="font-weight:600; font-size:12px; margin-left:6px;">${snap ? fmtNum(snap.dayChange) : ''} ${snap ? fmtPct(snap.dayPct) : ''} · 5日 ${snap ? fmtPct(snap.fivePct) : '—'}</span>
           </div>
-          <div class="${fiveCls}" style="font-size:11.5px; margin-top:2px;">5日 ${snap ? fmtPct(snap.fivePct) : '—'}</div>
           <div class="text-faint" style="font-size:11px; margin-top:4px;">${maBits}</div>
           <div class="text-faint" style="font-size:11px; margin-top:2px;">${rangeLabel}</div>
         </button>
@@ -139,7 +138,7 @@ async function renderList(container) {
   function paint() {
     sortEl.innerHTML = SORT_KEYS.map(
       (s) =>
-        `<button class="btn ${sortKey === s.key ? 'btn-primary' : ''}" data-sort="${s.key}" style="padding:6px 10px; font-size:12px;">${s.label}</button>`
+        `<button class="btn ${sortKey === s.key ? 'btn-primary' : ''}" data-sort="${s.key}" style="padding:6px 10px; font-size:12px; flex:none;">${s.label}</button>`
     ).join('');
     const ordered = sortWatchRows(rows, sortKey);
     listEl.innerHTML = ordered.map(({ w, snap, loading }) => rowHtml(w, snap, loading)).join('');
