@@ -1,6 +1,6 @@
 import { getAllWatchItems, addWatchItem, removeWatchItem } from './watchlist.js';
 import { navigate } from '../router.js';
-import { formatDate, escapeHtml, pnlClass } from '../utils/format.js';
+import { escapeHtml, pnlClass } from '../utils/format.js';
 import { YahooFinanceProvider, FinMindProvider } from '../data/marketdata.js';
 import { computeWatchSnapshot, sortWatchRows } from '../core/watchSnapshot.js';
 
@@ -14,6 +14,13 @@ function fmtNum(v, digits = 2) {
   if (v == null || Number.isNaN(v)) return '—';
   const sign = v > 0 ? '+' : '';
   return `${sign}${v.toFixed(digits)}`;
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
 }
 
 function renderWatchlistView(container) {
@@ -68,16 +75,13 @@ const SORT_KEYS = [
 ];
 
 async function loadSnap(stockId) {
+  const startDate = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
   try {
-    const bars = await YahooFinanceProvider.getKLine(stockId, {
-      startDate: new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10),
-    });
+    const bars = await withTimeout(YahooFinanceProvider.getKLine(stockId, { startDate }), 8000);
     return computeWatchSnapshot(bars);
   } catch {
     try {
-      const bars = await FinMindProvider.getKLine(stockId, {
-        startDate: new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10),
-      });
+      const bars = await withTimeout(FinMindProvider.getKLine(stockId, { startDate }), 8000);
       return computeWatchSnapshot(bars);
     } catch {
       return null;
@@ -85,44 +89,18 @@ async function loadSnap(stockId) {
   }
 }
 
-async function renderList(container) {
-  const listEl = container.querySelector('#watch-list');
-  const sortEl = container.querySelector('#watch-sort');
-  const items = getAllWatchItems();
-
-  if (items.length === 0) {
-    sortEl.innerHTML = '';
-    listEl.innerHTML = '<div class="empty-state">觀察名單是空的</div>';
-    return;
-  }
-
-  listEl.innerHTML = '<div class="empty-state">載入行情中…</div>';
-  const rows = [];
-  for (const w of items) {
-    const snap = await loadSnap(w.stockId);
-    rows.push({ w, snap });
-  }
-
-  let sortKey = container._watchSortKey || 'dayPct';
-  function paint() {
-    sortEl.innerHTML = SORT_KEYS.map(
-      (s) =>
-        `<button class="btn ${sortKey === s.key ? 'btn-primary' : ''}" data-sort="${s.key}" style="padding:6px 10px; font-size:12px;">${s.label}</button>`
-    ).join('');
-    const ordered = sortWatchRows(rows, sortKey);
-    listEl.innerHTML = ordered
-      .map(({ w, snap }) => {
-        const dayCls = snap ? pnlClass(snap.dayChange) : 'text-faint';
-        const fiveCls = snap ? pnlClass(snap.fivePct) : 'text-faint';
-        const maBits = snap
-          ? `MA5${snap.ma5 || '—'} · MA10${snap.ma10 || '—'} · MA20${snap.ma20 || '—'}`
-          : '行情未取到';
-        const rangeLabel = snap
-          ? snap.hasFlat
-            ? `直線K 高 ${snap.rangeHigh} / 低 ${snap.rangeLow}`
-            : `最新K 高 ${snap.rangeHigh} / 低 ${snap.rangeLow}`
-          : '';
-        return `
+function rowHtml(w, snap, loading) {
+  const dayCls = snap ? pnlClass(snap.dayChange) : 'text-faint';
+  const fiveCls = snap ? pnlClass(snap.fivePct) : 'text-faint';
+  let maBits = '行情未取到';
+  if (loading) maBits = '載入中…';
+  else if (snap) maBits = `MA5${snap.ma5 || '—'} · MA10${snap.ma10 || '—'} · MA20${snap.ma20 || '—'}`;
+  const rangeLabel = snap
+    ? snap.hasFlat
+      ? `直線K 高 ${snap.rangeHigh} / 低 ${snap.rangeLow}`
+      : `最新K 高 ${snap.rangeHigh} / 低 ${snap.rangeLow}`
+    : '';
+  return `
     <div class="card" data-watch-id="${escapeHtml(w.id)}" style="border-style:dashed;">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
         <button class="stock-link" data-action="view-detail" data-stock-id="${escapeHtml(w.stockId)}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; flex:1;">
@@ -141,10 +119,30 @@ async function renderList(container) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
         </button>
       </div>
-    </div>
-  `;
-      })
-      .join('');
+    </div>`;
+}
+
+async function renderList(container) {
+  const listEl = container.querySelector('#watch-list');
+  const sortEl = container.querySelector('#watch-sort');
+  const items = getAllWatchItems();
+
+  if (items.length === 0) {
+    sortEl.innerHTML = '';
+    listEl.innerHTML = '<div class="empty-state">觀察名單是空的</div>';
+    return;
+  }
+
+  const rows = items.map((w) => ({ w, snap: null, loading: true }));
+  let sortKey = container._watchSortKey || 'dayPct';
+
+  function paint() {
+    sortEl.innerHTML = SORT_KEYS.map(
+      (s) =>
+        `<button class="btn ${sortKey === s.key ? 'btn-primary' : ''}" data-sort="${s.key}" style="padding:6px 10px; font-size:12px;">${s.label}</button>`
+    ).join('');
+    const ordered = sortWatchRows(rows, sortKey);
+    listEl.innerHTML = ordered.map(({ w, snap, loading }) => rowHtml(w, snap, loading)).join('');
 
     sortEl.querySelectorAll('[data-sort]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -165,7 +163,16 @@ async function renderList(container) {
       });
     });
   }
+
   paint();
+
+  await Promise.all(
+    rows.map(async (row) => {
+      row.snap = await loadSnap(row.w.stockId);
+      row.loading = false;
+      paint();
+    })
+  );
 }
 
 export { renderWatchlistView };
