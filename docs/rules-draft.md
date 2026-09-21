@@ -1,8 +1,9 @@
 # Trade 進出場設定（已寫入程式）
 
-記錄日期：2026-09-17；用語補充 2026-09-18
+記錄日期：2026-09-17；用語補充 2026-09-18；資料來源更正 2026-09-21
 詳細過程：docs/2026-09-17-entry-exit-backtest.md
 用語規則：docs/terms-range.md
+證交所日 K：docs/2026-09-21-twse-kline.md
 
 ## 已寫入 js/core/tradeLevels.js
 
@@ -31,6 +32,11 @@
 - 未滿足進場條件時顯示缺哪一條
 - 新增「參考出場」列
 
+### 資料來源更正（2026-09-21，尚未寫入程式）
+- 證交所有個股日 K：`STOCK_DAY` 按月查，不是 MIS、也不是 OpenAPI 的 STOCK_DAY_ALL
+- 詳見 docs/2026-09-21-twse-kline.md
+
 ### 未改
 - Excel、FIFO、稅費計算
 - 程式尚未依用語拆區間 / 橫盤 / 震盪
+- K 圖仍走雅虎日 K
