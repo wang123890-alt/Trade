@@ -2,6 +2,7 @@ import { getAllWatchItems, addWatchItem, removeWatchItem } from './watchlist.js'
 import { navigate } from '../router.js';
 import { escapeHtml, pnlClass } from '../utils/format.js';
 import { YahooFinanceProvider, FinMindProvider } from '../data/marketdata.js';
+import { TwseDailyKLineProvider } from '../data/twseDailyKLine.js';
 import { computeWatchSnapshot, sortWatchRows } from '../core/watchSnapshot.js';
 
 function fmtPct(v) {
@@ -77,14 +78,19 @@ const SORT_KEYS = [
 async function loadSnap(stockId) {
   const startDate = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
   try {
-    const bars = await withTimeout(YahooFinanceProvider.getKLine(stockId, { startDate }), 8000);
+    const bars = await withTimeout(TwseDailyKLineProvider.getKLine(stockId, { startDate }), 20000);
     return computeWatchSnapshot(bars);
   } catch {
     try {
-      const bars = await withTimeout(FinMindProvider.getKLine(stockId, { startDate }), 8000);
+      const bars = await withTimeout(YahooFinanceProvider.getKLine(stockId, { startDate }), 8000);
       return computeWatchSnapshot(bars);
     } catch {
-      return null;
+      try {
+        const bars = await withTimeout(FinMindProvider.getKLine(stockId, { startDate }), 8000);
+        return computeWatchSnapshot(bars);
+      } catch {
+        return null;
+      }
     }
   }
 }
