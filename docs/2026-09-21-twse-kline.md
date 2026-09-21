@@ -8,27 +8,35 @@
 - 個股 K 圖：雅虎日 K → FinMind
 - 畫面寫「雅虎股市」是因為圖真的用雅虎，不是優先順序弄反
 
+## 盤中、盤後接點不一樣
+
+不是同一條接上加參數就能兼顯兩種時間。
+
+| 時段 | 接點 | 用途 |
+|---|---|---|
+| 盤中 | `mis.twse.com.tw/.../getStockInfo` | 當下價、今日進行中的開高低成交；可拼一根未收盤 K |
+| 盤後 | `www.twse.com.tw/exchangeReport/STOCK_DAY`（上市，按月）；櫃買 `st43`（上櫃，按月） | 已結算的歷史日 K；收盤前不要期待裡面有「今日」 |
+
+`openapi.twse.com.tw/.../STOCK_DAY_ALL` 又是第三條：全市場當日快照，不是個股月表，也不是 MIS。
+
 ## 三條路不能混
 
 | 端點 | 給什麼 | 不要當成 |
 |---|---|---|
-| `mis.twse.com.tw/.../getStockInfo` | 當下報價 | 歷史 K |
-| `openapi.twse.com.tw/.../STOCK_DAY_ALL` | 全市場「當天」一包；帶 date 也不追溯 | 個股多月歷史 |
-| `www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMM01&stockNo=2330` | 單檔、**一個月**的開高低收 | 一次拿整段年 |
-
-上櫃走櫃買 `st43`（個股日成交資訊），不是 STOCK_DAY。
+| MIS `getStockInfo` | 盤中報價 | 盤後月表 |
+| OpenAPI `STOCK_DAY_ALL` | 全市場「當天」一包；帶 date 也不追溯 | 個股多月歷史 |
+| 官網 `STOCK_DAY` | 單檔、**一個月**盤後開高低收 | 盤中即時；一次拿整年 |
 
 ## 被擋多半是方法不對
 
-1. 拿 MIS 去凑日 K
+1. 用盤後接點去拿盤中，或用 MIS 去凑整月日 K
 2. 機房 IP 直打 MIS／官網 → WAF 502
 3. GitHub Pages 瀏覽器直打 `twse.com.tw` → 沒 CORS
 4. 一次連打很多月、沒間隔、沒官網 Referer
 
 ## 若要改 K 圖改證交所優先（尚未寫入）
 
-- 上市：STOCK_DAY，一個月一包，需幾個月就打幾次
-- 上櫃：st43 同樣按月
+- 盤後歷史：上市 STOCK_DAY，上櫃 st43，一個月一包
+- 盤中今日：MIS 拼一根未收盤 K
 - 瀏覽器端走現有 `r.jina.ai` 中繼，不直連
 - 月與月留間隔
-- 今日未收盤那根可再疊 MIS 即時
