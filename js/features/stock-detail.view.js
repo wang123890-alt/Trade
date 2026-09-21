@@ -1,6 +1,7 @@
 import { recompute } from './transactions.js';
 import { StockNotesRepository } from '../data/storage.js';
 import { FinMindProvider, YahooFinanceProvider, CsvProvider, MarketDataError } from '../data/marketdata.js';
+import { TwseDailyKLineProvider } from '../data/twseDailyKLine.js';
 import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
@@ -52,15 +53,20 @@ async function loadAndRenderChart(container, stockId, stockTx) {
   let bars;
   let sourceLabel;
   try {
-    bars = await YahooFinanceProvider.getKLine(stockId);
-    sourceLabel = '雅虎股市';
+    bars = await TwseDailyKLineProvider.getKLine(stockId);
+    sourceLabel = '證交所';
   } catch (err) {
     try {
-      bars = await FinMindProvider.getKLine(stockId);
-      sourceLabel = 'FinMind';
-    } catch (err2) {
-      renderCsvFallback(chartArea, stockId, err2);
-      return;
+      bars = await YahooFinanceProvider.getKLine(stockId);
+      sourceLabel = '雅虎股市';
+    } catch (errY) {
+      try {
+        bars = await FinMindProvider.getKLine(stockId);
+        sourceLabel = 'FinMind';
+      } catch (err2) {
+        renderCsvFallback(chartArea, stockId, err2);
+        return;
+      }
     }
   }
   if (bars.length === 0) {
