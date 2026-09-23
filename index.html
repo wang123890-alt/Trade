@@ -9,7 +9,6 @@
 </head>
 <body>
   <div id="app">
-    <!-- Wide layout: sidebar (Pixel Fold unfolded / tablet / desktop) -->
     <nav class="sidebar-nav">
       <div style="display:flex; align-items:center; gap:10px; padding:6px 8px 22px 8px;">
         <div class="logo-mark"></div>
@@ -22,13 +21,13 @@
         <button data-route="overview">市場總覽</button>
         <button data-route="holdings">我的持股</button>
         <button data-route="transactions">交易紀錄</button>
+        <button data-route="review">覆盤</button>
         <button data-route="watchlist">觀察名單</button>
         <button data-route="settings">資料設定</button>
       </div>
     </nav>
 
     <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
-      <!-- Narrow layout: top bar (Pixel Fold folded / phone) -->
       <header class="topbar">
         <div class="logo-mark"></div>
         <div class="title">交易損益</div>
@@ -39,7 +38,6 @@
       </main>
     </div>
 
-    <!-- Narrow layout: bottom tab bar -->
     <nav class="bottom-nav">
       <button data-route="overview">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
@@ -52,6 +50,10 @@
       <button data-route="transactions">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
         交易
+      </button>
+      <button data-route="review">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        覆盤
       </button>
       <button data-route="watchlist">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
