@@ -2,23 +2,20 @@
 // data shapes shared by fifo.js, position.js, statistics.js and storage.js.
 
 /**
- * A single buy/sell fill. Transactions are immutable facts: editing one means
- * replacing it and re-running the full FIFO/Position/Statistics pipeline,
- * never patching downstream state directly.
- *
  * Review fields (2026-09-23): snapshot of the rule checklist ON THE TRADE
  * DATE, not today's recalculation. Empty string = not filled (old CSV rows).
  *   ruleTrend / ruleBreakout / ruleAdx / ruleVolume : '' | 'yes' | 'no'  (BUY)
- *   ruleExitFlag : '' | 'yes' | 'no'  (SELL: 收盤<MA5 且 MA5<MA10)
+ *   ruleExitFlag : '' | 'yes' | 'no'  (SELL)
  *   followedRules : '' | 'yes' | 'no'
- *   pnlKind : '' | 'rule' | 'broke'  (規則內試錯 / 沒守規則)
+ *   pnlKind : '' | 'rule' | 'broke'
+ *   selfReview : free text written on the review page
  */
 function createTransaction({
   id,
   stockId,
   stockName,
-  type, // 'BUY' | 'SELL'
-  dateTime, // ISO 8601 string
+  type,
+  dateTime,
   price,
   quantity,
   fee = 0,
@@ -33,6 +30,7 @@ function createTransaction({
   ruleExitFlag = '',
   followedRules = '',
   pnlKind = '',
+  selfReview = '',
   createdAt = new Date().toISOString(),
   updatedAt = new Date().toISOString(),
 }) {
@@ -56,15 +54,12 @@ function createTransaction({
     ruleExitFlag,
     followedRules,
     pnlKind,
+    selfReview,
     createdAt,
     updatedAt,
   };
 }
 
-/**
- * One FIFO-matched closed lot: part or all of a BUY matched against part or
- * all of a SELL. Produced only by fifo.js — never hand-authored or edited.
- */
 function createTradeMatch({
   id,
   buyTransactionId,
@@ -79,7 +74,7 @@ function createTradeMatch({
   realizedPnLPercent,
   holdingDays,
   closedAt,
-  review = null, // filled in by the loss-review engine when realizedPnL < 0
+  review = null,
 }) {
   return {
     id,
@@ -99,7 +94,6 @@ function createTradeMatch({
   };
 }
 
-/** Current open lot summary for one stock. Always derived, never stored. */
 function createPosition({
   stockId,
   stockName,
@@ -128,16 +122,15 @@ function createPosition({
   };
 }
 
-/** A stock kept under observation after being fully sold (or added manually). */
 function createWatchItem({
   id,
   stockId,
   stockName,
-  source = 'manual', // 'manual' | 'sold'
+  source = 'manual',
   soldPrice = null,
   soldAt = null,
   addedAt = new Date().toISOString(),
-  notes = [], // [{ time, text }], append-only
+  notes = [],
 }) {
   return {
     id,
