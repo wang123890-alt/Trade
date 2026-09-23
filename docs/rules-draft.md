@@ -4,7 +4,7 @@
 詳細過程：docs/2026-09-17-entry-exit-backtest.md
 用語規則：docs/terms-range.md
 證交所日 K：docs/2026-09-21-twse-kline.md
-覆盤要什麼：docs/2026-09-23-review-page.md
+覆盤要什麼：docs/2026-09-23-review-page.md（含原 review-plan 設計約束；review-plan 已改 stub）
 
 ## 已寫入 js/core/tradeLevels.js
 
