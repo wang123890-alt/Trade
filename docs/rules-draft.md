@@ -1,10 +1,10 @@
 # Trade 進出場設定（已寫入程式）
 
-記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤 2026-09-23
+記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤 2026-09-23（WIP）
 詳細過程：docs/2026-09-17-entry-exit-backtest.md
 用語規則：docs/terms-range.md
 證交所日 K：docs/2026-09-21-twse-kline.md
-覆盤要什麼：docs/2026-09-23-review-page.md（含原 review-plan 設計約束；review-plan 已改 stub）
+覆盤：docs/2026-09-23-review-page.md
 
 ## 已寫入 js/core/tradeLevels.js
 
@@ -29,9 +29,8 @@
 ### 資料來源
 - K 圖／觀察名單：證交所 → 雅虎 → FinMind
 
-### 覆盤（2026-09-23 晚已寫入）
-- 路由 `#review`，`js/features/review.view.js`
-- 每筆已平倉：紅漲綠跌 K（標買賣、MA5/10/20）+原因+當日規則塊+總結+自我解析
+### 覆盤（WIP，尚未正式）
+- `#review` 已掛上，先放著改，不影響帳
 - docs/2026-09-23-review-page.md
 
 ### 未改
