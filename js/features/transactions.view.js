@@ -4,8 +4,6 @@ import { ManualPriceRepository } from '../data/storage.js';
 import { formatMoney, formatDate, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
 
-// Taiwan brokerage standard rates: transaction fee ~0.1425% on both BUY/SELL,
-// transaction tax 0.3% on SELL only (no tax on BUY).
 const FEE_RATE = 0.001425;
 const TAX_RATE = 0.003;
 
@@ -17,6 +15,18 @@ function computeFee(price, quantity) {
 function computeTax(price, quantity, type) {
   if (type !== 'SELL' || !(price > 0) || !(quantity > 0)) return 0;
   return Math.round(price * quantity * TAX_RATE);
+}
+
+function triSelect(name, label) {
+  return `
+    <div class="form-field">
+      <label>${label}</label>
+      <select name="${name}">
+        <option value="">未填</option>
+        <option value="yes">是</option>
+        <option value="no">否</option>
+      </select>
+    </div>`;
 }
 
 function renderTransactionsView(container) {
@@ -76,6 +86,36 @@ function renderTransactionsView(container) {
           <label>進出場原因</label>
           <input type="text" name="reason" placeholder="例：突破月線，量增">
         </div>
+
+        <div id="buy-rules" style="margin:8px 0 12px; padding-top:10px; border-top:1px solid var(--border);">
+          <div class="text-faint" style="font-size:12px; margin-bottom:8px;">買進當日規則（不是今天重算）</div>
+          <div class="form-row">${triSelect('ruleTrend', '多頭排列')}</div>
+          <div class="form-row">${triSelect('ruleBreakout', '收盤>前20日高')} ${triSelect('ruleAdx', 'ADX≥25')}</div>
+          <div class="form-row">${triSelect('ruleVolume', '量≥20日均量')}</div>
+        </div>
+        <div id="sell-rules" style="margin:8px 0 12px; padding-top:10px; border-top:1px solid var(--border); display:none;">
+          <div class="text-faint" style="font-size:12px; margin-bottom:8px;">賣出當日規則</div>
+          <div class="form-row">${triSelect('ruleExitFlag', '收盤<MA5 且 MA5<MA10')}</div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>有無遵守規則</label>
+            <select name="followedRules">
+              <option value="">未填</option>
+              <option value="yes">有</option>
+              <option value="no">沒有</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>賺賠歸類</label>
+            <select name="pnlKind">
+              <option value="">未填</option>
+              <option value="rule">規則內試錯</option>
+              <option value="broke">沒守規則</option>
+            </select>
+          </div>
+        </div>
+
         <div class="form-field">
           <label>備註</label>
           <textarea name="note"></textarea>
@@ -91,12 +131,21 @@ function renderTransactionsView(container) {
   `;
 
   const form = container.querySelector('#tx-form');
-
   const priceInput = form.querySelector('[name="price"]');
   const quantityInput = form.querySelector('[name="quantity"]');
   const typeInput = form.querySelector('[name="type"]');
   const feeInput = form.querySelector('[name="fee"]');
   const taxInput = form.querySelector('[name="tax"]');
+  const buyRules = container.querySelector('#buy-rules');
+  const sellRules = container.querySelector('#sell-rules');
+
+  function syncRuleSections() {
+    const sell = typeInput.value === 'SELL';
+    buyRules.style.display = sell ? 'none' : 'block';
+    sellRules.style.display = sell ? 'block' : 'none';
+  }
+  typeInput.addEventListener('change', syncRuleSections);
+  syncRuleSections();
 
   feeInput.addEventListener('input', () => { feeInput.dataset.userEdited = 'true'; });
   taxInput.addEventListener('input', () => { taxInput.dataset.userEdited = 'true'; });
@@ -133,6 +182,13 @@ function renderTransactionsView(container) {
       strategy: data.strategy || '',
       reason: data.reason || '',
       note: data.note || '',
+      ruleTrend: data.ruleTrend || '',
+      ruleBreakout: data.ruleBreakout || '',
+      ruleAdx: data.ruleAdx || '',
+      ruleVolume: data.ruleVolume || '',
+      ruleExitFlag: data.ruleExitFlag || '',
+      followedRules: data.followedRules || '',
+      pnlKind: data.pnlKind || '',
     };
 
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -151,6 +207,7 @@ function renderTransactionsView(container) {
     form.reset();
     delete feeInput.dataset.userEdited;
     delete taxInput.dataset.userEdited;
+    syncRuleSections();
     renderList(container);
     await maybePromptAddToWatchlist(input);
   });
@@ -158,14 +215,6 @@ function renderTransactionsView(container) {
   renderList(container);
 }
 
-/** A BUY that's been partially sold used to show as two disconnected raw
- * rows (the original BUY at full quantity, and the SELL) with no visible
- * link between them. Instead, each BUY is expanded here into: one row per
- * SELL that closed part of it (already-sold quantity + realized P&L), plus
- * — if anything is left — one row for the remaining quantity and its
- * residual value. A SELL that couldn't be matched to any BUY (over-sell,
- * caught by FIFO as an error rather than blocking the whole recompute) still
- * needs to show up somewhere, so it gets its own flagged row. */
 function buildDisplayRows(transactions, matches, openLots, errors, manualPrices) {
   const matchesByBuyId = {};
   for (const m of matches) {
@@ -224,9 +273,6 @@ function buildDisplayRows(transactions, matches, openLots, errors, manualPrices)
   return rows;
 }
 
-/** Each row has a left (stock/date info) and right (amount) half; the
- * caller wraps `right` together with the delete button in one flex group,
- * matching the original single-transaction row layout. */
 function renderRow(row) {
   const header = `
     <button class="stock-link" data-action="view-detail" data-stock-id="${escapeHtml(row.stockId)}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; font:inherit; text-decoration:underline; text-decoration-color:var(--border);">${escapeHtml(row.stockName)}</button>
@@ -265,7 +311,6 @@ function renderRow(row) {
     };
   }
 
-  // kind === 'unmatched-sell'
   return {
     left: `
       <div style="font-size:13.5px; font-weight:600;">
@@ -332,8 +377,6 @@ function renderList(container) {
   });
 }
 
-/** After a SELL that zeroes out the position, offer (never force) adding the
- * stock to the watchlist for continued observation. */
 async function maybePromptAddToWatchlist(input) {
   if (input.type !== 'SELL') return;
   const { positions } = recompute();
