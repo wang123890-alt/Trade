@@ -3,3 +3,5 @@
 **已整合進** [`docs/2026-09-23-review-page.md`](./2026-09-23-review-page.md)。
 
 本檔僅保留連結，以免舊連結失效。設計約束與已寫入畫面清單以 review-page 為準。
+
+紀錄請接續 [`review-page.md`](./2026-09-23-review-page.md)。
