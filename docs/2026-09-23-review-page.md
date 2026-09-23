@@ -4,18 +4,25 @@
 
 ## 欄位（已寫入）
 
-交易表單：reason、ruleTrend / ruleBreakout / ruleAdx / ruleVolume、ruleExitFlag、followedRules、pnlKind。
-覆盤頁可寫：selfReview（存在賣單）。
+新增交易：reason、ruleTrend / ruleBreakout / ruleAdx / ruleVolume、ruleExitFlag、followedRules、pnlKind。
+空字串=未填，舊單不當成「否」。
+selfReview：覆盤頁「自我解析」，寫在賣單，`editTransaction` 存。
 
-## 覆盤頁（2026-09-23 晚已寫入）
+## 覆盤頁（2026-09-23 17:30 已寫入）
 
-路由 `#review`，檔案 `js/features/review.view.js`。
+路由 `#review`。底部導航、側欄都有「覆盤」。
 每筆已平倉一張卡，順序：
 
-1. 買賣 K 圖：一張，個股頁同款均線（MA5/10/20），台股紅漲綠跌，標 買 / 賣
-2. 進出場原因
+1. 買賣 K 圖：證交所→雅虎→FinMind；截買前 15 日到賣後數日；MA5/10/20；紅漲綠跌；標買賣
+2. 進出場原因（買.reason / 賣.reason）
 3. 當日規則塊（保留）
-4. 總結（由規則欄自動組）
-5. 自我解析（可改可存）
+4. 總結：由規則欄自動組，未填則寫「規則未填，無法自動總結」
+5. 自我解析
 
-個股頁「虧損覆盤」不動。
+### 改過的檔
+- `js/features/review.view.js` 新增
+- `js/app.js` 註冊 review
+- `index.html` 導航
+- `js/core/models.js` selfReview
+
+個股頁「虧損覆盤」（review.js）不動。Excel / FIFO / 稅費不動。
