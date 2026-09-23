@@ -5,6 +5,13 @@
  * A single buy/sell fill. Transactions are immutable facts: editing one means
  * replacing it and re-running the full FIFO/Position/Statistics pipeline,
  * never patching downstream state directly.
+ *
+ * Review fields (2026-09-23): snapshot of the rule checklist ON THE TRADE
+ * DATE, not today's recalculation. Empty string = not filled (old CSV rows).
+ *   ruleTrend / ruleBreakout / ruleAdx / ruleVolume : '' | 'yes' | 'no'  (BUY)
+ *   ruleExitFlag : '' | 'yes' | 'no'  (SELL: 收盤<MA5 且 MA5<MA10)
+ *   followedRules : '' | 'yes' | 'no'
+ *   pnlKind : '' | 'rule' | 'broke'  (規則內試錯 / 沒守規則)
  */
 function createTransaction({
   id,
@@ -19,6 +26,13 @@ function createTransaction({
   strategy = '',
   reason = '',
   note = '',
+  ruleTrend = '',
+  ruleBreakout = '',
+  ruleAdx = '',
+  ruleVolume = '',
+  ruleExitFlag = '',
+  followedRules = '',
+  pnlKind = '',
   createdAt = new Date().toISOString(),
   updatedAt = new Date().toISOString(),
 }) {
@@ -35,6 +49,13 @@ function createTransaction({
     strategy,
     reason,
     note,
+    ruleTrend,
+    ruleBreakout,
+    ruleAdx,
+    ruleVolume,
+    ruleExitFlag,
+    followedRules,
+    pnlKind,
     createdAt,
     updatedAt,
   };
