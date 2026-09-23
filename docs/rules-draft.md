@@ -1,9 +1,10 @@
 # Trade 進出場設定（已寫入程式）
 
-記錄日期：2026-09-17；用語補充 2026-09-18；資料來源 2026-09-21 已寫入
+記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤前規劃 2026-09-23
 詳細過程：docs/2026-09-17-entry-exit-backtest.md
 用語規則：docs/terms-range.md
 證交所日 K：docs/2026-09-21-twse-kline.md
+覆盤前規劃：docs/2026-09-23-review-plan.md
 
 ## 已寫入 js/core/tradeLevels.js
 
@@ -36,8 +37,12 @@
 - K 圖／觀察名單：證交所 → 雅虎 → FinMind
 - 盤後：上市 STOCK_DAY、上櫃 st43（按月）
 - 盤中：MIS 補今日未收盤根
-- 接點不同；詳見 docs/2026-09-21-twse-kline.md
-- 程式：js/data/twseDailyKLine.js、stock-detail.view.js、watchlist.view.js
+- 詳見 docs/2026-09-21-twse-kline.md
+
+### 覆盤前規劃（2026-09-23，尚未寫入程式）
+- 先計畫（停損／目標／部位上限／允不允許攪平），交易後再拿計畫對照覆盤
+- 畫面擬：K 圖 → 規劃 → 看法 → 虧損覆盤
+- 詳見 docs/2026-09-23-review-plan.md
 
 ### 未改
 - Excel、FIFO、稅費計算
