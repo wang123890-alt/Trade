@@ -1738,6 +1738,30 @@
       "selfReview": "",
       "createdAt": "2026-09-25T12:27:42.498Z",
       "updatedAt": "2026-09-25T12:27:42.498Z"
+    },
+    {
+      "id": "tx_mugy5r3n_ungzau",
+      "stockId": "3293",
+      "stockName": "鈊象",
+      "type": "BUY",
+      "dateTime": "2026-09-24",
+      "price": 767,
+      "quantity": 50,
+      "fee": 55,
+      "tax": 0,
+      "strategy": "",
+      "reason": "大幅上張，突破各均線，成交量大於前幾日甚多",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "createdAt": "2026-09-25T12:38:34.355Z",
+      "updatedAt": "2026-09-25T12:38:34.355Z"
     }
   ],
   "watchlist": [
