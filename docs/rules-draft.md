@@ -1,9 +1,10 @@
 # Trade 進出場設定（已寫入程式）
 
-記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤 2026-09-23（WIP）
+記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤 2026-09-23（WIP）；個股日 K 2026-09-25
 詳細過程：docs/2026-09-17-entry-exit-backtest.md
 用語規則：docs/terms-range.md
 證交所日 K：docs/2026-09-21-twse-kline.md
+個股不按月：docs/2026-09-25-kline-speed-lookup.md
 覆盤：docs/2026-09-23-review-page.md
 
 ## 已寫入 js/core/tradeLevels.js
@@ -27,7 +28,8 @@
 - 收盤 < MA5 且 MA5 < MA10
 
 ### 資料來源
-- K 圖／觀察名單：證交所 → 雅虎 → FinMind
+- 個股日 K（明細、覆盤、觀察）：歷史一次雅虎（失敗才 FinMind）；今日 MIS 補一根。不按月。
+- 持股報價「更新」：MIS → 雅虎 → FinMind
 
 ### 覆盤（WIP，尚未正式）
 - `#review` 已掛上，先放著改，不影響帳
