@@ -192,6 +192,16 @@ async function fetchMonth(stockId, m, market) {
   return { market, bars: [] };
 }
 
+async function getTodayBar(stockId) {
+  const misUrl = `${TWSE_REALTIME_BASE}?ex_ch=tse_${stockId}.tw|otc_${stockId}.tw&json=1&delay=0`;
+  const mis = await fetchJsonWithProxyFallback(misUrl);
+  for (const row of mis?.msgArray || []) {
+    const bar = parseMisIntradayBar(row);
+    if (bar) return bar;
+  }
+  return null;
+}
+
 const TwseDailyKLineProvider = {
   async getKLine(stockId, { startDate } = {}) {
     const cached = memCache[stockId] || readDiskCache(stockId);
@@ -200,7 +210,6 @@ const TwseDailyKLineProvider = {
       const bars = await inflight[stockId];
       return startDate ? bars.filter((b) => b.date >= startDate) : bars;
     }
-
     inflight[stockId] = (async () => {
       const months = monthKeys(startDate);
       const latest = months[months.length - 1];
@@ -210,24 +219,18 @@ const TwseDailyKLineProvider = {
       const parts = await Promise.all(rest.map((m) => fetchMonth(stockId, m, market)));
       const all = [...parts.flatMap((p) => p.bars), ...probe.bars];
       if (all.length === 0) throw new MarketDataError('證交所盤後日K無法取得');
-
       const byDate = new Map();
       for (const b of all) byDate.set(b.date, b);
-
-      const misUrl = `${TWSE_REALTIME_BASE}?ex_ch=tse_${stockId}.tw|otc_${stockId}.tw&json=1&delay=0`;
-      const mis = await fetchJsonWithProxyFallback(misUrl);
-      for (const row of mis?.msgArray || []) {
-        const bar = parseMisIntradayBar(row);
-        if (!bar) continue;
-        const existing = byDate.get(bar.date);
-        if (!existing || existing.close !== bar.close) byDate.set(bar.date, bar);
+      const today = await getTodayBar(stockId);
+      if (today) {
+        const existing = byDate.get(today.date);
+        if (!existing || existing.close !== today.close) byDate.set(today.date, today);
       }
       const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
       memCache[stockId] = merged;
       writeDiskCache(stockId, merged);
       return merged;
     })();
-
     try {
       const bars = await inflight[stockId];
       return startDate ? bars.filter((b) => b.date >= startDate) : bars;
@@ -237,4 +240,4 @@ const TwseDailyKLineProvider = {
   },
 };
 
-export { TwseDailyKLineProvider };
+export { TwseDailyKLineProvider, getTodayBar };
