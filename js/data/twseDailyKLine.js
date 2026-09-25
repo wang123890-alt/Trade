@@ -1,7 +1,7 @@
 import { MarketDataError } from './marketdata.js';
 
-const DIRECT_TIMEOUT_MS = 2500;
-const PROXY_TIMEOUT_MS = 6000;
+const DIRECT_TIMEOUT_MS = 1800;
+const PROXY_TIMEOUT_MS = 4500;
 const CACHE_TTL_MS = 20 * 60 * 1000;
 const CACHE_KEY = 'trade_app.kline_cache.v1';
 const TWSE_REALTIME_BASE = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
@@ -11,6 +11,7 @@ const CORS_PROXIES = [
 ];
 
 const memCache = {};
+const inflight = {};
 
 function readDiskCache(stockId) {
   try {
@@ -58,17 +59,20 @@ function parseJsonLoose(text) {
 }
 
 async function fetchJsonWithProxyFallback(targetUrl) {
+  const attempts = [
+    (async () => {
+      const response = await fetchWithTimeout(targetUrl, {}, DIRECT_TIMEOUT_MS);
+      if (!response.ok) throw new Error(`direct HTTP ${response.status}`);
+      return parseJsonLoose(await response.text());
+    })(),
+    ...CORS_PROXIES.map(async (buildProxyUrl) => {
+      const response = await fetchWithTimeout(buildProxyUrl(targetUrl), {}, PROXY_TIMEOUT_MS);
+      if (!response.ok) throw new Error(`proxy HTTP ${response.status}`);
+      return parseJsonLoose(await response.text());
+    }),
+  ];
   try {
-    const response = await fetchWithTimeout(targetUrl, {}, DIRECT_TIMEOUT_MS);
-    if (response.ok) return parseJsonLoose(await response.text());
-  } catch { /* CORS */ }
-  const proxyAttempts = CORS_PROXIES.map(async (buildProxyUrl) => {
-    const response = await fetchWithTimeout(buildProxyUrl(targetUrl), {}, PROXY_TIMEOUT_MS);
-    if (!response.ok) throw new Error(`proxy HTTP ${response.status}`);
-    return parseJsonLoose(await response.text());
-  });
-  try {
-    return await Promise.any(proxyAttempts);
+    return await Promise.any(attempts);
   } catch {
     return null;
   }
@@ -192,31 +196,44 @@ const TwseDailyKLineProvider = {
   async getKLine(stockId, { startDate } = {}) {
     const cached = memCache[stockId] || readDiskCache(stockId);
     if (cached?.length) return startDate ? cached.filter((b) => b.date >= startDate) : cached;
-
-    const months = monthKeys(startDate);
-    const latest = months[months.length - 1];
-    const probe = await fetchMonth(stockId, latest, null);
-    const market = probe.market;
-    const rest = months.slice(0, -1);
-    const parts = await Promise.all(rest.map((m) => fetchMonth(stockId, m, market)));
-    const all = [...parts.flatMap((p) => p.bars), ...probe.bars];
-    if (all.length === 0) throw new MarketDataError('證交所盤後日K無法取得');
-
-    const byDate = new Map();
-    for (const b of all) byDate.set(b.date, b);
-
-    const misUrl = `${TWSE_REALTIME_BASE}?ex_ch=tse_${stockId}.tw|otc_${stockId}.tw&json=1&delay=0`;
-    const mis = await fetchJsonWithProxyFallback(misUrl);
-    for (const row of mis?.msgArray || []) {
-      const bar = parseMisIntradayBar(row);
-      if (!bar) continue;
-      const existing = byDate.get(bar.date);
-      if (!existing || existing.close !== bar.close) byDate.set(bar.date, bar);
+    if (inflight[stockId]) {
+      const bars = await inflight[stockId];
+      return startDate ? bars.filter((b) => b.date >= startDate) : bars;
     }
-    const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-    memCache[stockId] = merged;
-    writeDiskCache(stockId, merged);
-    return startDate ? merged.filter((b) => b.date >= startDate) : merged;
+
+    inflight[stockId] = (async () => {
+      const months = monthKeys(startDate);
+      const latest = months[months.length - 1];
+      const probe = await fetchMonth(stockId, latest, null);
+      const market = probe.market;
+      const rest = months.slice(0, -1);
+      const parts = await Promise.all(rest.map((m) => fetchMonth(stockId, m, market)));
+      const all = [...parts.flatMap((p) => p.bars), ...probe.bars];
+      if (all.length === 0) throw new MarketDataError('證交所盤後日K無法取得');
+
+      const byDate = new Map();
+      for (const b of all) byDate.set(b.date, b);
+
+      const misUrl = `${TWSE_REALTIME_BASE}?ex_ch=tse_${stockId}.tw|otc_${stockId}.tw&json=1&delay=0`;
+      const mis = await fetchJsonWithProxyFallback(misUrl);
+      for (const row of mis?.msgArray || []) {
+        const bar = parseMisIntradayBar(row);
+        if (!bar) continue;
+        const existing = byDate.get(bar.date);
+        if (!existing || existing.close !== bar.close) byDate.set(bar.date, bar);
+      }
+      const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+      memCache[stockId] = merged;
+      writeDiskCache(stockId, merged);
+      return merged;
+    })();
+
+    try {
+      const bars = await inflight[stockId];
+      return startDate ? bars.filter((b) => b.date >= startDate) : bars;
+    } finally {
+      delete inflight[stockId];
+    }
   },
 };
 

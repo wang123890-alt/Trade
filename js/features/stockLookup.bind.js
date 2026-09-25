@@ -6,17 +6,24 @@ function bindStockLookup(form) {
   if (!idInput || !nameInput) return;
   idInput.required = false;
   nameInput.required = false;
+  idInput.setAttribute('autocomplete', 'off');
+  nameInput.setAttribute('autocomplete', 'off');
+  idInput.setAttribute('inputmode', 'numeric');
 
   let lock = false;
+  let idTimer = 0;
+  let nameTimer = 0;
 
   async function fromId() {
     const id = idInput.value.trim();
-    if (lock || !id || nameInput.value.trim()) return;
+    if (lock || !id) return;
+    if (nameInput.value.trim() && nameInput.dataset.fromLookup === id) return;
     const hit = await lookupById(id);
     if (!hit) return;
     lock = true;
     idInput.value = hit.stockId;
     nameInput.value = hit.stockName;
+    nameInput.dataset.fromLookup = hit.stockId;
     lock = false;
   }
 
@@ -28,11 +35,21 @@ function bindStockLookup(form) {
     lock = true;
     idInput.value = hit.stockId;
     nameInput.value = hit.stockName;
+    nameInput.dataset.fromLookup = hit.stockId;
     lock = false;
   }
 
+  idInput.addEventListener('input', () => {
+    clearTimeout(idTimer);
+    const id = idInput.value.trim();
+    if (id.length >= 4) idTimer = setTimeout(fromId, 180);
+  });
   idInput.addEventListener('blur', fromId);
   idInput.addEventListener('change', fromId);
+  nameInput.addEventListener('input', () => {
+    clearTimeout(nameTimer);
+    if (nameInput.value.trim().length >= 2) nameTimer = setTimeout(fromName, 180);
+  });
   nameInput.addEventListener('blur', fromName);
   nameInput.addEventListener('change', fromName);
 
