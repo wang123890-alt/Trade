@@ -2,6 +2,7 @@ import { exportAsJson, exportTransactionsAsCsv, importFromPayload } from '../dat
 import { autoAddFullyClosedFromTransactions } from './watchlist.js';
 import { TransactionRepository, initStore, refreshFromRemote, isRemoteAvailable } from '../data/storage.js';
 import * as githubStore from '../data/githubStore.js';
+import { getRiskSettings, setRiskSettings } from '../data/riskSettings.js';
 
 function renderSettingsView(container) {
   const config = githubStore.getConfig() || {};
@@ -42,6 +43,25 @@ function renderSettingsView(container) {
     </div>
 
     <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px;">波段本金（只存在這台裝置）</div>
+      <div class="text-faint" style="font-size:12px; margin-bottom:12px;">
+        個股頁用「本金 × 單筆風險％ ÷（進場參考 − 停損）」反推可買股數。不寫入交易帳、Excel。
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>波段本金（元）</label>
+          <input type="number" id="risk-capital" min="0" step="1000" placeholder="例如 300000">
+        </div>
+        <div class="form-field">
+          <label>單筆風險％</label>
+          <input type="number" id="risk-pct" min="0.1" step="0.1" placeholder="1">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="risk-save-btn">儲存風險設定</button>
+      <div id="risk-save-result" class="text-faint" style="font-size:12px; margin-top:8px;"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
       <div style="font-size:14px; font-weight:700; margin-bottom:10px;">匯出備份</div>
       <div class="text-faint" style="font-size:12px; margin-bottom:12px;">
         建議定期匯出備份，或用來搬到其他裝置。
@@ -62,6 +82,17 @@ function renderSettingsView(container) {
       </div>
     </div>
   `;
+
+  const risk = getRiskSettings();
+  const capEl = container.querySelector('#risk-capital');
+  const pctEl = container.querySelector('#risk-pct');
+  if (capEl && risk.capital) capEl.value = risk.capital;
+  if (pctEl) pctEl.value = risk.riskPct;
+  container.querySelector('#risk-save-btn').addEventListener('click', () => {
+    const saved = setRiskSettings({ capital: capEl.value, riskPct: pctEl.value });
+    container.querySelector('#risk-save-result').textContent =
+      saved.capital ? `已存：本金 ${saved.capital}、單筆 ${saved.riskPct}%` : '本金未填，個股頁股數會空白';
+  });
 
   container.querySelector('#export-json-btn').addEventListener('click', () => exportAsJson());
   container.querySelector('#export-csv-btn').addEventListener('click', () => exportTransactionsAsCsv());
