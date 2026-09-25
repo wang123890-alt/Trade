@@ -1,8 +1,7 @@
 import { getAllWatchItems, addWatchItem, removeWatchItem } from './watchlist.js';
 import { navigate } from '../router.js';
 import { escapeHtml, pnlClass } from '../utils/format.js';
-import { YahooFinanceProvider, FinMindProvider } from '../data/marketdata.js';
-import { TwseDailyKLineProvider } from '../data/twseDailyKLine.js';
+import { loadKLineFast } from '../data/loadKLine.js';
 import { computeWatchSnapshot, sortWatchRows } from '../core/watchSnapshot.js';
 
 function fmtPct(v) {
@@ -17,17 +16,9 @@ function fmtNum(v, digits = 2) {
   return `${sign}${v.toFixed(digits)}`;
 }
 
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
-  ]);
-}
-
 function renderWatchlistView(container) {
   container.innerHTML = `
     <div style="font-size:20px; font-weight:700; margin-bottom:16px;">觀察名單</div>
-
     <div class="card" style="margin-bottom:16px;">
       <div style="font-size:14px; font-weight:700; margin-bottom:10px;">手動加入觀察</div>
       <div id="watch-form-errors"></div>
@@ -43,7 +34,6 @@ function renderWatchlistView(container) {
       </div>
       <button class="btn btn-primary btn-block" id="watch-add-btn">加入觀察</button>
     </div>
-
     <div id="watch-sort" style="display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; margin-bottom:10px;"></div>
     <div id="watch-list"></div>
   `;
@@ -76,28 +66,16 @@ const SORT_KEYS = [
 ];
 
 async function loadSnap(stockId) {
-  const startDate = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
   try {
-    const bars = await withTimeout(TwseDailyKLineProvider.getKLine(stockId, { startDate }), 20000);
-    return computeWatchSnapshot(bars);
+    const { bars } = await loadKLineFast(stockId);
+    return bars?.length ? computeWatchSnapshot(bars) : null;
   } catch {
-    try {
-      const bars = await withTimeout(YahooFinanceProvider.getKLine(stockId, { startDate }), 8000);
-      return computeWatchSnapshot(bars);
-    } catch {
-      try {
-        const bars = await withTimeout(FinMindProvider.getKLine(stockId, { startDate }), 8000);
-        return computeWatchSnapshot(bars);
-      } catch {
-        return null;
-      }
-    }
+    return null;
   }
 }
 
 function rowHtml(w, snap, loading) {
   const dayCls = snap ? pnlClass(snap.dayChange) : 'text-faint';
-  const fiveCls = snap ? pnlClass(snap.fivePct) : 'text-faint';
   let maBits = '行情未取到';
   if (loading) maBits = '載入中…';
   else if (snap) maBits = `MA5${snap.ma5 || '—'} · MA10${snap.ma10 || '—'} · MA20${snap.ma20 || '—'}`;
@@ -148,7 +126,6 @@ async function renderList(container) {
     ).join('');
     const ordered = sortWatchRows(rows, sortKey);
     listEl.innerHTML = ordered.map(({ w, snap, loading }) => rowHtml(w, snap, loading)).join('');
-
     sortEl.querySelectorAll('[data-sort]').forEach((btn) => {
       btn.addEventListener('click', () => {
         sortKey = btn.getAttribute('data-sort');
@@ -170,14 +147,11 @@ async function renderList(container) {
   }
 
   paint();
-
-  await Promise.all(
-    rows.map(async (row) => {
-      row.snap = await loadSnap(row.w.stockId);
-      row.loading = false;
-      paint();
-    })
-  );
+  await Promise.all(rows.map(async (row) => {
+    row.snap = await loadSnap(row.w.stockId);
+    row.loading = false;
+    paint();
+  }));
 }
 
 export { renderWatchlistView };
