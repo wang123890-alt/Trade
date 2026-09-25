@@ -1,12 +1,40 @@
 import { MarketDataError } from './marketdata.js';
 
-const DIRECT_TIMEOUT_MS = 3000;
-const PROXY_TIMEOUT_MS = 12000;
+const DIRECT_TIMEOUT_MS = 2500;
+const PROXY_TIMEOUT_MS = 6000;
+const CACHE_TTL_MS = 20 * 60 * 1000;
+const CACHE_KEY = 'trade_app.kline_cache.v1';
 const TWSE_REALTIME_BASE = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
 const CORS_PROXIES = [
   (target) => `https://r.jina.ai/${target}`,
   (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
 ];
+
+const memCache = {};
+
+function readDiskCache(stockId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const hit = all[stockId];
+    if (!hit || Date.now() - hit.at > CACHE_TTL_MS) return null;
+    return hit.bars;
+  } catch {
+    return null;
+  }
+}
+
+function writeDiskCache(stockId, bars) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    all[stockId] = { at: Date.now(), bars };
+    const keys = Object.keys(all);
+    if (keys.length > 40) {
+      keys.sort((a, b) => (all[a].at || 0) - (all[b].at || 0));
+      for (const k of keys.slice(0, keys.length - 40)) delete all[k];
+    }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(all));
+  } catch { /* quota */ }
+}
 
 async function fetchWithTimeout(url, options = {}, timeoutMs) {
   const controller = new AbortController();
@@ -33,9 +61,7 @@ async function fetchJsonWithProxyFallback(targetUrl) {
   try {
     const response = await fetchWithTimeout(targetUrl, {}, DIRECT_TIMEOUT_MS);
     if (response.ok) return parseJsonLoose(await response.text());
-  } catch {
-    /* CORS — try relays */
-  }
+  } catch { /* CORS */ }
   const proxyAttempts = CORS_PROXIES.map(async (buildProxyUrl) => {
     const response = await fetchWithTimeout(buildProxyUrl(targetUrl), {}, PROXY_TIMEOUT_MS);
     if (!response.ok) throw new Error(`proxy HTTP ${response.status}`);
@@ -68,7 +94,7 @@ function parseTwseDate(d) {
 
 function defaultStartDate() {
   const d = new Date();
-  d.setMonth(d.getMonth() - 6);
+  d.setMonth(d.getMonth() - 4);
   return d.toISOString().slice(0, 10);
 }
 
@@ -148,32 +174,34 @@ function parseMisIntradayBar(row) {
   };
 }
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+async function fetchMonth(stockId, m, market) {
+  if (market !== 'otc') {
+    const url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${m.yyyymmdd}&stockNo=${encodeURIComponent(stockId)}`;
+    const bars = parseStockDayPayload(await fetchJsonWithProxyFallback(url));
+    if (bars.length) return { market: 'tse', bars };
+  }
+  if (market !== 'tse') {
+    const url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${encodeURIComponent(m.rocYm)}&stkno=${encodeURIComponent(stockId)}`;
+    const bars = parseTpexSt43(await fetchJsonWithProxyFallback(url));
+    if (bars.length) return { market: 'otc', bars };
+  }
+  return { market, bars: [] };
 }
 
-/** 盤後：上市 STOCK_DAY／上櫃 st43（按月）。盤中：MIS 補今日未收盤根。 */
 const TwseDailyKLineProvider = {
   async getKLine(stockId, { startDate } = {}) {
+    const cached = memCache[stockId] || readDiskCache(stockId);
+    if (cached?.length) return startDate ? cached.filter((b) => b.date >= startDate) : cached;
+
     const months = monthKeys(startDate);
-    const all = [];
-    let market = null;
-    for (const m of months) {
-      let bars = [];
-      if (market !== 'otc') {
-        const url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${m.yyyymmdd}&stockNo=${encodeURIComponent(stockId)}`;
-        bars = parseStockDayPayload(await fetchJsonWithProxyFallback(url));
-        if (bars.length) market = 'tse';
-      }
-      if (!bars.length && market !== 'tse') {
-        const url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${encodeURIComponent(m.rocYm)}&stkno=${encodeURIComponent(stockId)}`;
-        bars = parseTpexSt43(await fetchJsonWithProxyFallback(url));
-        if (bars.length) market = 'otc';
-      }
-      all.push(...bars);
-      await sleep(350);
-    }
+    const latest = months[months.length - 1];
+    const probe = await fetchMonth(stockId, latest, null);
+    const market = probe.market;
+    const rest = months.slice(0, -1);
+    const parts = await Promise.all(rest.map((m) => fetchMonth(stockId, m, market)));
+    const all = [...parts.flatMap((p) => p.bars), ...probe.bars];
     if (all.length === 0) throw new MarketDataError('證交所盤後日K無法取得');
+
     const byDate = new Map();
     for (const b of all) byDate.set(b.date, b);
 
@@ -186,6 +214,8 @@ const TwseDailyKLineProvider = {
       if (!existing || existing.close !== bar.close) byDate.set(bar.date, bar);
     }
     const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+    memCache[stockId] = merged;
+    writeDiskCache(stockId, merged);
     return startDate ? merged.filter((b) => b.date >= startDate) : merged;
   },
 };
