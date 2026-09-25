@@ -5,6 +5,7 @@ import { loadKLineFast } from '../data/loadKLine.js';
 import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
+import { getRiskSettings } from '../data/riskSettings.js';
 import { attachLossReviews, computeBuyFacts } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
 import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
@@ -95,7 +96,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const macd = computeMACD(bars);
   const dmi = computeDMI(bars);
   const atr = computeATR(bars, 14);
-  const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx });
+  const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx, ...getRiskSettings() });
   const chartLevels = levelsForChart(tradeLevels);
   const lastIndex = bars.length - 1;
   const cross = detectMACross(ma5, ma20, lastIndex);
@@ -188,10 +189,16 @@ function renderTradeLevels(levels) {
       ? row('參考出場', levels.exit.signal ? '條件成立' : '尚未成立', levels.exit.basis, levels.exit.signal ? 'text-green' : '')
       : '',
     row('參考停損', levels.stop.price != null ? `${levels.stop.price}` : '—', levels.stop.basis, 'text-green'),
-    levels.target ? row('參考目標', `${levels.target.price}`, levels.target.basis, 'text-red') : '',
+    levels.structureTarget
+      ? row('結構目標', `${levels.structureTarget.price}`, levels.structureTarget.basis, 'text-red')
+      : row('結構目標', '—', '現價上方沒有已確認的前波高點'),
+    levels.target ? row('2R參考', `${levels.target.price}`, levels.target.basis, 'text-red') : '',
     levels.riskReward != null
-      ? row('風險報酬比', `1 : ${levels.riskReward}`, levels.riskReward >= 2 ? '達到常見的 1:2 門檻' : '低於常見的 1:2 門檻')
+      ? row('風險報酬比', `1 : ${levels.riskReward}`, levels.riskReward >= 2 ? '2R資金線' : '低於 1:2')
       : '',
+    levels.size
+      ? row('可買股數', levels.size.lots > 0 ? `${levels.size.lots}張（${levels.size.shares}股）` : `${levels.size.shares}股（不滿1張）`, `波段本金 ${levels.size.capital} × ${levels.size.riskPct}% ＝ ${levels.size.budget}；每股風險 ${levels.size.perShare}`)
+      : row('可買股數', '—', levels.stop.price == null ? '沒有停損價，無法反推' : '到資料設定填波段本金'),
   ].join('');
   return `
     <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
