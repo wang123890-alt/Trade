@@ -1,6 +1,5 @@
 // Reference price levels derived from the K-line and indicators.
-// 2026-09-17: gated entry + MA exit flag. See docs/2026-09-17-entry-exit-backtest.md
-// 2026-09-18: range state wording = 橫盤（盤整） when MAs cross / tangle / unordered.
+// 2026-09-26: 前高結構目標 + 停損反推股數. See docs/2026-09-26-structure-size.md
 
 const PIVOT_LOOKBACK = 3;
 const STOP_ATR_BUFFER = 1.0;
@@ -58,7 +57,24 @@ function avgVolume(bars, last, window) {
   return n > 0 ? sum / n : null;
 }
 
-function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], atr = [], adx = [] } = {}) {
+function sizeFromStop(entryPrice, stopPrice, { capital, riskPct } = {}) {
+  const per = entryPrice - stopPrice;
+  const cap = Number(capital);
+  const pct = Number(riskPct);
+  if (!(per > 0) || !(cap > 0) || !(pct > 0)) return null;
+  const budget = cap * (pct / 100);
+  const shares = Math.floor(budget / per);
+  return {
+    shares,
+    lots: Math.floor(shares / 1000),
+    budget: round2(budget),
+    perShare: round2(per),
+    riskPct: pct,
+    capital: cap,
+  };
+}
+
+function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], atr = [], adx = [], capital, riskPct } = {}) {
   if (!Array.isArray(bars) || bars.length < MIN_BARS) return null;
 
   const last = bars.length - 1;
@@ -142,7 +158,15 @@ function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], a
   if (risk != null && risk > 0) {
     target = {
       price: round2(entryRef + risk * TARGET_R_MULTIPLE),
-      basis: `固定 ${TARGET_R_MULTIPLE}R 參考目標（主出場看MA5/MA10）`,
+      basis: `固定 ${TARGET_R_MULTIPLE}R 資金參考（主出場看MA5/MA10）`,
+    };
+  }
+
+  let structureTarget = null;
+  if (resistance && resistance.price > entryRef) {
+    structureTarget = {
+      price: round2(resistance.price),
+      basis: `前波高點 ${shortDate(resistance.date)}`,
     };
   }
 
@@ -150,6 +174,10 @@ function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], a
     risk != null && risk > 0 && target?.price != null
       ? round2((target.price - entryRef) / risk)
       : null;
+
+  const size = stop.price != null
+    ? sizeFromStop(entryRef, stop.price, { capital, riskPct })
+    : null;
 
   return {
     price: round2(price),
@@ -166,6 +194,8 @@ function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], a
     exit,
     stop,
     target,
+    structureTarget,
+    size,
     riskReward,
   };
 }
@@ -173,11 +203,12 @@ function computeTradeLevels(bars, { ma5 = [], ma10 = [], ma20 = [], ma60 = [], a
 function levelsForChart(levels) {
   if (!levels) return [];
   const out = [];
-  if (levels.resistance) out.push({ price: levels.resistance.price, label: "壓力", color: "var(--text-faint)" });
+  if (levels.resistance) out.push({ price: levels.resistance.price, label: "前高", color: "var(--text-faint)" });
   if (levels.support) out.push({ price: levels.support.price, label: "支撐", color: "var(--text-faint)" });
-  if (levels.target?.price != null) out.push({ price: levels.target.price, label: "目標", color: "var(--red)" });
+  if (levels.structureTarget?.price != null) out.push({ price: levels.structureTarget.price, label: "結構目標", color: "var(--red)" });
+  if (levels.target?.price != null) out.push({ price: levels.target.price, label: "2R", color: "var(--red)" });
   if (levels.stop?.price != null) out.push({ price: levels.stop.price, label: "停損", color: "var(--green)" });
   return out;
 }
 
-export { computeTradeLevels, findPivots, levelsForChart, ENTRY_ADX_MIN, ENTRY_VOL_RATIO };
+export { computeTradeLevels, findPivots, levelsForChart, sizeFromStop, ENTRY_ADX_MIN, ENTRY_VOL_RATIO };
