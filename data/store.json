@@ -1714,6 +1714,30 @@
       "note": "",
       "createdAt": "2026-09-21T05:06:45.700Z",
       "updatedAt": "2026-09-21T05:06:45.700Z"
+    },
+    {
+      "id": "tx_mugxrs4i_raixn7",
+      "stockId": "2883",
+      "stockName": "凱基金",
+      "type": "SELL",
+      "dateTime": "2026-09-24",
+      "price": 38.85,
+      "quantity": 1000,
+      "fee": 55,
+      "tax": 117,
+      "strategy": "",
+      "reason": "跌破均線，均線有往下現象",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "createdAt": "2026-09-25T12:27:42.498Z",
+      "updatedAt": "2026-09-25T12:27:42.498Z"
     }
   ],
   "watchlist": [
