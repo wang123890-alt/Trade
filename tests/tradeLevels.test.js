@@ -1,6 +1,6 @@
 // Plain Node test runner. Run with: node tests/tradeLevels.test.js
 import assert from 'node:assert/strict';
-import { computeTradeLevels, findPivots, levelsForChart } from '../js/core/tradeLevels.js';
+import { computeTradeLevels, findPivots, levelsForChart, sizeFromStop } from '../js/core/tradeLevels.js';
 import { computeMA, computeATR, computeDMI } from '../js/core/indicators.js';
 
 let passed = 0;
@@ -115,6 +115,22 @@ test('levelsForChart skips unresolved', () => {
   assert.deepEqual(levelsForChart(null), []);
   const lines = levelsForChart({ support: { price: 90 }, resistance: null, stop: { price: 88, basis: 'x' }, target: { price: null } });
   assert.equal(lines.length, 2);
+});
+
+test('sizeFromStop floors shares from 1 percent risk', () => {
+  const s = sizeFromStop(100, 95, { capital: 100000, riskPct: 1 });
+  assert.equal(s.budget, 1000);
+  assert.equal(s.perShare, 5);
+  assert.equal(s.shares, 200);
+  assert.equal(s.lots, 0);
+});
+
+test('structure target uses nearest high above price', () => {
+  const bars = ramp(80, 100, 1);
+  const lv = computeTradeLevels(bars, inds(bars));
+  if (lv.resistance) {
+    assert.equal(lv.structureTarget.price, lv.resistance.price);
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
