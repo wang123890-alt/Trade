@@ -1,4 +1,5 @@
 import { recompute, addTransaction, deleteTransaction } from './transactions.js';
+import { bindStockLookup } from './stockLookup.bind.js';
 import { addWatchItem } from './watchlist.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { formatMoney, formatDate, pnlClass, escapeHtml } from '../utils/format.js';
@@ -38,11 +39,11 @@ function renderTransactionsView(container) {
         <div class="form-row">
           <div class="form-field">
             <label>標的代號</label>
-            <input type="text" name="stockId" placeholder="2330" required>
+            <input type="text" name="stockId" placeholder="2330">
           </div>
           <div class="form-field">
             <label>標的名稱</label>
-            <input type="text" name="stockName" placeholder="台積電" required>
+            <input type="text" name="stockName" placeholder="台積電">
           </div>
         </div>
         <div class="form-row">
@@ -86,7 +87,6 @@ function renderTransactionsView(container) {
           <label>進出場原因</label>
           <input type="text" name="reason" placeholder="例：突破月線，量增">
         </div>
-
         <div id="buy-rules" style="margin:8px 0 12px; padding-top:10px; border-top:1px solid var(--border);">
           <div class="text-faint" style="font-size:12px; margin-bottom:8px;">買進當日規則（不是今天重算）</div>
           <div class="form-row">${triSelect('ruleTrend', '多頭排列')}</div>
@@ -115,7 +115,6 @@ function renderTransactionsView(container) {
             </select>
           </div>
         </div>
-
         <div class="form-field">
           <label>備註</label>
           <textarea name="note"></textarea>
@@ -123,7 +122,6 @@ function renderTransactionsView(container) {
         <button type="submit" class="btn btn-primary btn-block">新增交易</button>
       </form>
     </div>
-
     <div class="card">
       <div style="font-size:15px; font-weight:700; margin-bottom:8px;">交易紀錄</div>
       <div id="tx-list"></div>
@@ -131,6 +129,7 @@ function renderTransactionsView(container) {
   `;
 
   const form = container.querySelector('#tx-form');
+  bindStockLookup(form);
   const priceInput = form.querySelector('[name="price"]');
   const quantityInput = form.querySelector('[name="quantity"]');
   const typeInput = form.querySelector('[name="type"]');
@@ -154,12 +153,8 @@ function renderTransactionsView(container) {
     const price = parseFloat(priceInput.value);
     const quantity = parseInt(quantityInput.value, 10);
     const type = typeInput.value;
-    if (feeInput.dataset.userEdited !== 'true') {
-      feeInput.value = computeFee(price, quantity);
-    }
-    if (taxInput.dataset.userEdited !== 'true') {
-      taxInput.value = computeTax(price, quantity, type);
-    }
+    if (feeInput.dataset.userEdited !== 'true') feeInput.value = computeFee(price, quantity);
+    if (taxInput.dataset.userEdited !== 'true') taxInput.value = computeTax(price, quantity, type);
   }
 
   [priceInput, quantityInput, typeInput].forEach((el) => {
@@ -190,14 +185,12 @@ function renderTransactionsView(container) {
       followedRules: data.followedRules || '',
       pnlKind: data.pnlKind || '',
     };
-
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = '儲存中…';
     const { errors } = await addTransaction(input);
     submitBtn.disabled = false;
     submitBtn.textContent = '新增交易';
-
     const errorBox = container.querySelector('#tx-form-errors');
     if (errors.length > 0) {
       errorBox.innerHTML = `<div class="error-banner">${errors.join('；')}</div>`;
@@ -217,58 +210,23 @@ function renderTransactionsView(container) {
 
 function buildDisplayRows(transactions, matches, openLots, errors, manualPrices) {
   const matchesByBuyId = {};
-  for (const m of matches) {
-    (matchesByBuyId[m.buyTransactionId] ??= []).push(m);
-  }
-
+  for (const m of matches) (matchesByBuyId[m.buyTransactionId] ??= []).push(m);
   const rows = [];
   for (const tx of transactions) {
     if (tx.type !== 'BUY') continue;
-
     for (const m of matchesByBuyId[tx.id] || []) {
-      rows.push({
-        kind: 'sold',
-        date: m.closedAt,
-        stockId: tx.stockId,
-        stockName: tx.stockName,
-        quantity: m.quantity,
-        buyPrice: m.buyPrice,
-        sellPrice: m.sellPrice,
-        realizedPnL: m.realizedPnL,
-        deleteId: m.sellTransactionId,
-      });
+      rows.push({ kind: 'sold', date: m.closedAt, stockId: tx.stockId, stockName: tx.stockName, quantity: m.quantity, buyPrice: m.buyPrice, sellPrice: m.sellPrice, realizedPnL: m.realizedPnL, deleteId: m.sellTransactionId });
     }
-
     const lot = (openLots[tx.stockId] || []).find((l) => l.txId === tx.id);
     const remainingQty = lot ? lot.remainingQty : 0;
     if (remainingQty > 0) {
       const marketPrice = manualPrices[tx.stockId] ?? null;
-      rows.push({
-        kind: 'holding',
-        date: tx.dateTime,
-        stockId: tx.stockId,
-        stockName: tx.stockName,
-        quantity: remainingQty,
-        costPrice: tx.price,
-        marketPrice,
-        residualValue: marketPrice != null ? marketPrice * remainingQty : null,
-        deleteId: tx.id,
-      });
+      rows.push({ kind: 'holding', date: tx.dateTime, stockId: tx.stockId, stockName: tx.stockName, quantity: remainingQty, costPrice: tx.price, marketPrice, residualValue: marketPrice != null ? marketPrice * remainingQty : null, deleteId: tx.id });
     }
   }
-
   for (const { transaction: tx } of errors) {
-    rows.push({
-      kind: 'unmatched-sell',
-      date: tx.dateTime,
-      stockId: tx.stockId,
-      stockName: tx.stockName,
-      quantity: tx.quantity,
-      price: tx.price,
-      deleteId: tx.id,
-    });
+    rows.push({ kind: 'unmatched-sell', date: tx.dateTime, stockId: tx.stockId, stockName: tx.stockName, quantity: tx.quantity, price: tx.price, deleteId: tx.id });
   }
-
   rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   return rows;
 }
@@ -278,100 +236,38 @@ function renderRow(row) {
     <button class="stock-link" data-action="view-detail" data-stock-id="${escapeHtml(row.stockId)}" style="background:none; border:none; padding:0; cursor:pointer; text-align:left; color:inherit; font:inherit; text-decoration:underline; text-decoration-color:var(--border);">${escapeHtml(row.stockName)}</button>
     <span class="text-faint" style="font-weight:500;">${escapeHtml(row.stockId)}</span>
   `;
-
   if (row.kind === 'sold') {
-    return {
-      left: `
-        <div style="font-size:13.5px; font-weight:600;">
-          ${header}
-          <span class="tag tag-green" style="margin-left:6px;">已賣出</span>
-        </div>
-        <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
-          ${formatDate(row.date)} · 已賣出 ${row.quantity}股 · ${row.buyPrice} → ${row.sellPrice}
-        </div>
-      `,
-      right: `<div class="${pnlClass(row.realizedPnL)}" style="font-size:13px; font-weight:600;">${formatMoney(row.realizedPnL)}</div>`,
-    };
+    return { left: `<div style="font-size:13.5px; font-weight:600;">${header}<span class="tag tag-green" style="margin-left:6px;">已賣出</span></div><div class="text-faint" style="font-size:11.5px; margin-top:3px;">${formatDate(row.date)} · 已賣出 ${row.quantity}股 · ${row.buyPrice} → ${row.sellPrice}</div>`, right: `<div class="${pnlClass(row.realizedPnL)}" style="font-size:13px; font-weight:600;">${formatMoney(row.realizedPnL)}</div>` };
   }
-
   if (row.kind === 'holding') {
-    return {
-      left: `
-        <div style="font-size:13.5px; font-weight:600;">
-          ${header}
-          <span class="tag" style="margin-left:6px; color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">持有中</span>
-        </div>
-        <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
-          ${formatDate(row.date)} · 剩餘 ${row.quantity}股 @ 成本 ${row.costPrice}
-        </div>
-      `,
-      right: `<div style="font-size:13px; font-weight:600;">
-          ${row.residualValue != null ? formatMoney(row.residualValue) : '<span class="text-faint" style="font-weight:500; font-size:12px;">未輸入現價</span>'}
-        </div>`,
-    };
+    return { left: `<div style="font-size:13.5px; font-weight:600;">${header}<span class="tag" style="margin-left:6px; color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">持有中</span></div><div class="text-faint" style="font-size:11.5px; margin-top:3px;">${formatDate(row.date)} · 剩餘 ${row.quantity}股 @ 成本 ${row.costPrice}</div>`, right: `<div style="font-size:13px; font-weight:600;">${row.residualValue != null ? formatMoney(row.residualValue) : '<span class="text-faint" style="font-weight:500; font-size:12px;">未輸入現價</span>'}</div>` };
   }
-
-  return {
-    left: `
-      <div style="font-size:13.5px; font-weight:600;">
-        ${header}
-        <span class="tag tag-green" style="margin-left:6px;">賣出</span>
-        <span class="tag tag-yellow" style="margin-left:4px;">⚠ 無對應買進</span>
-      </div>
-      <div class="text-faint" style="font-size:11.5px; margin-top:3px;">
-        ${formatDate(row.date)} · ${row.quantity}股 @ ${row.price}
-      </div>
-    `,
-    right: `<div style="font-size:13px; font-weight:600;">${formatMoney(row.price * row.quantity)}</div>`,
-  };
+  return { left: `<div style="font-size:13.5px; font-weight:600;">${header}<span class="tag tag-green" style="margin-left:6px;">賣出</span><span class="tag tag-yellow" style="margin-left:4px;">⚠ 無對應買進</span></div><div class="text-faint" style="font-size:11.5px; margin-top:3px;">${formatDate(row.date)} · ${row.quantity}股 @ ${row.price}</div>`, right: `<div style="font-size:13px; font-weight:600;">${formatMoney(row.price * row.quantity)}</div>` };
 }
 
 function renderList(container) {
   const listEl = container.querySelector('#tx-list');
   const manualPrices = ManualPriceRepository.getAll();
   const { transactions, matches, openLots, errors } = recompute(manualPrices);
-
   if (transactions.length === 0) {
     listEl.innerHTML = '<div class="empty-state">還沒有任何交易紀錄</div>';
     return;
   }
-
   const rows = buildDisplayRows(transactions, matches, openLots, errors, manualPrices);
-
-  listEl.innerHTML = rows
-    .map((row) => {
-      const { left, right } = renderRow(row);
-      return `
-    <div class="tx-row" data-tx-id="${row.deleteId}">
-      <div>${left}</div>
-      <div style="display:flex; align-items:center; gap:4px;">
-        <div style="text-align:right; margin-right:6px;">${right}</div>
-        <button class="icon-btn" data-action="delete" title="刪除">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
-        </button>
-      </div>
-    </div>
-  `;
-    })
-    .join('');
-
+  listEl.innerHTML = rows.map((row) => {
+    const { left, right } = renderRow(row);
+    return `<div class="tx-row" data-tx-id="${row.deleteId}"><div>${left}</div><div style="display:flex; align-items:center; gap:4px;"><div style="text-align:right; margin-right:6px;">${right}</div><button class="icon-btn" data-action="delete" title="刪除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></button></div></div>`;
+  }).join('');
   listEl.querySelectorAll('[data-action="view-detail"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      navigate('detail', btn.getAttribute('data-stock-id'));
-    });
+    btn.addEventListener('click', () => navigate('detail', btn.getAttribute('data-stock-id')));
   });
-
   listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const row = btn.closest('[data-tx-id]');
       const id = row.getAttribute('data-tx-id');
       btn.disabled = true;
       const { success, errors: deleteErrors } = await deleteTransaction(id);
-      if (!success) {
-        alert(deleteErrors.join('；'));
-        btn.disabled = false;
-        return;
-      }
+      if (!success) { alert(deleteErrors.join('；')); btn.disabled = false; return; }
       renderList(container);
     });
   });
@@ -380,21 +276,9 @@ function renderList(container) {
 async function maybePromptAddToWatchlist(input) {
   if (input.type !== 'SELL') return;
   const { positions } = recompute();
-  const stillHeld = positions.some((p) => p.stockId === input.stockId);
-  if (stillHeld) return;
-
-  const wantsToWatch = window.confirm(
-    `${input.stockName} 已全部賣出，是否加入觀察名單持續追蹤？`
-  );
-  if (!wantsToWatch) return;
-
-  await addWatchItem({
-    stockId: input.stockId,
-    stockName: input.stockName,
-    source: 'sold',
-    soldPrice: input.price,
-    soldAt: input.dateTime,
-  });
+  if (positions.some((p) => p.stockId === input.stockId)) return;
+  if (!window.confirm(`${input.stockName} 已全部賣出，是否加入觀察名單持續追蹤？`)) return;
+  await addWatchItem({ stockId: input.stockId, stockName: input.stockName, source: 'sold', soldPrice: input.price, soldAt: input.dateTime });
 }
 
 export { renderTransactionsView };
