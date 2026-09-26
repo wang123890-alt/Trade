@@ -1,6 +1,6 @@
 # 兩組每日選股（10日循環）
 
-2026-09-26 規格。不改 FIFO／帳。App 進出場程式尚未改。
+2026-09-26 規格。2026-09-27 補 Choose／Termux。不改 FIFO／帳。App 進出場程式尚未改。
 
 ## 兩組（文件已留）
 
@@ -13,23 +13,23 @@ B APP四關進＋林昇出
 - 進場四關同時成立：MA5>MA20>MA60、收盤>前20日最高、ADX(14)≥25、量≥前20日均量
 - 出場同 A（前低停、1.5R）
 
-不用樞紐高、不用進場日必須已有前高目標、不用 TWII 硬濾（可選軟註記）。
+不用樞紐高、不用進場日必須已有前高目標、不用 TWII 硬濾。
 
-## 標記
+## 全市場路徑（2026-09-27）
 
-- 兩組皆中：當日同時進 A 與 B → 組別欄寫「林昇+APP四關進」
-- 連日：該代號與「上一個交易日」清單重複 → 當日「連日」欄填「連日」
-- 十日重複：10日視窗內出現≥2個不同交易日 → 「重複」欄填「重複」（沿用舊表）
+走 `wang123890-alt/Choose`，不走 Trade 手機帳本。
+- 抓檔：TWSE `STOCK_DAY_ALL` + TPEx OpenAPI，寫 `data/choose.db`
+- 策略：`app/strategies/two_groups.py`
+  - `linsheng_structure`
+  - `app_four_gate`
+- 純 Python，不需 numpy；Termux 不裝 ruff
+- 排程：平日 15:30 Asia/Taipei（Choose 原設定）
 
-## 檔案
+Termux 安裝（2026-09-27）：
+- `gh auth login`（瀏覽器 device code）後 `gh repo clone wang123890-alt/Choose`
+- 只裝：fastapi uvicorn sqlalchemy apscheduler jinja2 requests python-multipart pytz
+- `python run.py`；手機內建瀏覽器開 `http://127.0.0.1:8000`
+- 不要在 Grok App 開 localhost；家目錄的 `run.py` 是別專案
+- 技術面需約 60 個全市場交易日才算得出兩組
 
-單一檔 `selected_stocks_rolling10.xlsx`，不另建日期檔。
-工作表：每日並排、重複個股、最新日明細、說明。
-只留最近10個交易日；同日重跑覆蓋該日欄，不新增欄。
-
-## 更新節奏
-
-- 盤後自動：每個台股交易日 15:10 後跑一次（K 線已收）
-- 盤中手動：隨時重跑，asof 用「已有的最新一根」（盤中為當日未收盤暫值，收盤後再覆蓋）
-
-全市場掃描依賴本機日K快取（舊流程的 pkl／daily_select）。本倉庫先定規則與標記，不在手機 App 掃全部上市櫃。
+10 日滾動表、連日標記尚未接上 Choose 匠表板。
