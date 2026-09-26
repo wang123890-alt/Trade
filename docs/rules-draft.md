@@ -1,6 +1,6 @@
 # Trade 進出場設定（已寫入程式）
 
-記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤 2026-09-23（WIP）；個股日 K 2026-09-25；結構/股數 2026-09-26；台股方法實測 2026-09-26（只留勝率>60%）
+記錄日期：2026-09-17；用語 2026-09-18；資料來源 2026-09-21；覆盤 2026-09-23（WIP）；個股日 K 2026-09-25；結構/股數 2026-09-26；台股方法實測 2026-09-26（只留勝率>60%）；兩組全市場 2026-09-27
 詳細過程：docs/2026-09-17-entry-exit-backtest.md
 用語規則：docs/terms-range.md
 證交所日 K：docs/2026-09-21-twse-kline.md
@@ -8,6 +8,7 @@
 覆盤：docs/2026-09-23-review-page.md
 前高與股數：docs/2026-09-26-structure-size.md
 台股高手與實測：docs/2026-09-26-tw-methods-backtest.md
+兩組每日選：docs/2026-09-26-two-group-daily-select.md
 
 ## 已寫入 js/core/tradeLevels.js
 
@@ -37,8 +38,13 @@
 ### 台股方法實測（2026-09-26）
 - 詳細：docs/2026-09-26-tw-methods-backtest.md
 - 只留勝率 > 60%：林昇結構；APP四關進 + 林昇結構出
-- 其餘方法已刪，不再對照
+- 其餘方法已刪
 - App 出場尚未改
+
+### 全市場兩組（2026-09-27）
+- 路徑在 Choose，不在 Trade
+- 策略名：linsheng_structure、app_four_gate
+- 詳細：docs/2026-09-26-two-group-daily-select.md
 
 ### 資料來源
 - 個股日 K（明細、覆盤、觀察）：歷史一次雅虎（失敗才 FinMind）；今日 MIS 補一根。不按月。
