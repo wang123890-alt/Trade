@@ -2,9 +2,15 @@
 // TwseDailyKLineProvider's live calls (STOCK_DAY, st43, MIS) were verified
 // manually against the real endpoints; here they're tested against a mocked
 // global.fetch so `node tests/*.test.js` never depends on network access.
-// getKLine() fetches one month at a time with a 350ms gap between months, so
-// every test here passes a startDate inside the current month — that keeps
-// monthKeys() to a single month and each test to one sleep, not seven.
+// getKLine() fetches one month at a time; every test here passes a startDate
+// inside the current month so monthKeys() stays to a single month.
+// NOTE: getKLine() now memoizes by stockId (memCache/inflight, added
+// 2026-09-2x for the parallel-month rewrite) for the lifetime of the module —
+// each test below MUST use its own stockId, never reuse one across tests,
+// or a later test silently gets an earlier test's cached bars back instead
+// of hitting its own mocked fetch (caught by this file itself going red
+// after that rewrite landed: tests reusing '2330' started failing because
+// the first test's result was served from cache to the later ones).
 import assert from 'node:assert/strict';
 import { TwseDailyKLineProvider } from '../js/data/twseDailyKLine.js';
 import { MarketDataError } from '../js/data/marketdata.js';
@@ -104,7 +110,7 @@ await testAsync("getKLine merges in today's still-open MIS bar, reading trade.z 
     }
     throw new Error(`unexpected url: ${url}`);
   };
-  const bars = await TwseDailyKLineProvider.getKLine('2330', { startDate: startOfMonth });
+  const bars = await TwseDailyKLineProvider.getKLine('2454', { startDate: startOfMonth });
   const misBar = bars.find((b) => b.date === iso(3));
   assert.ok(misBar, 'expected the MIS intraday bar to be merged in as a new day');
   assert.equal(misBar.close, 101.5); // fell back to trade.z since z was '-'
@@ -128,7 +134,7 @@ await testAsync('getKLine filters out bars before startDate after merging', asyn
     if (url.includes('getStockInfo.jsp')) return emptyMis;
     throw new Error(`unexpected url: ${url}`);
   };
-  const bars = await TwseDailyKLineProvider.getKLine('2330', { startDate: iso(3) });
+  const bars = await TwseDailyKLineProvider.getKLine('2317', { startDate: iso(3) });
   assert.equal(bars.length, 1);
   assert.equal(bars[0].date, iso(5));
 });
@@ -143,6 +149,24 @@ await testAsync('getKLine throws MarketDataError (not an empty array) when every
     () => TwseDailyKLineProvider.getKLine('9999', { startDate: startOfMonth }),
     MarketDataError
   );
+});
+
+await testAsync('getKLine caches by stockId: a second call for the same stock does not fetch again', async () => {
+  let fetchCount = 0;
+  globalThis.fetch = async (url) => {
+    fetchCount++;
+    if (url.includes('STOCK_DAY')) {
+      return { ok: true, text: async () => JSON.stringify({ data: [[roc(2), '100', '...', '1.00', '1.10', '0.90', '1.00', '...', '...']] }) };
+    }
+    if (url.includes('getStockInfo.jsp')) return emptyMis;
+    throw new Error(`unexpected url: ${url}`);
+  };
+  const first = await TwseDailyKLineProvider.getKLine('1101', { startDate: startOfMonth });
+  const countAfterFirst = fetchCount;
+  assert.ok(countAfterFirst > 0, 'first call should hit fetch');
+  const second = await TwseDailyKLineProvider.getKLine('1101', { startDate: startOfMonth });
+  assert.equal(fetchCount, countAfterFirst, 'second call for the same stockId should be served from cache, not refetch');
+  assert.deepEqual(second, first);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
