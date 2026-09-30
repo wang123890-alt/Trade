@@ -107,6 +107,7 @@
   - 要驗證 CORS 標頭 → 用 `curl -D - -H "Origin: https://wang123890-alt.github.io"` 看回應有沒有 `access-control-allow-origin`
   - 要驗證畫面邏輯 → Playwright ＋ 蓋掉 `window.fetch`
 - 週末/非交易時間不會有真正的盤中成交價，所有來源都一樣，這是正常現象不是 bug。
+- **需要台股歷史資料做研究/回測（不是Trade App本身的即時報價/K線）時，先查 `wang123890-alt/Choose` 的 CLAUDE.md**：使用者2026-09-30建了一個專門解決「AI每次session重新對付TWSE WAF/CORS代理不穩」的標準工具——Google Drive存的全市場日OHLCV+三大法人買賣超（回溯到2004-02-11，仍在backfill），用一個Google Apps Script Web App包成純HTTP GET，不用登入Google、不用解壓Drive檔案。**金鑰是機密，絕對不要寫進這個repo（public）或任何公開的地方**——用法跟目前的URL/金鑰記在Choose那個private repo的CLAUDE.md裡，需要的話去那邊查或問使用者確認目前的值（金鑰可能會輪替）。這個工具是給AI研究/回測用的資料源，跟Trade App實際部署的即時報價/K線抓取路徑（雅虎/FinMind/證交所MIS，見上面「資料來源」章節）是分開的兩件事，不要混為一談。
 - **收到「某頁的功能沒更新/沒生效」，且該頁其實跟已經修過的頁面共用同一段程式碼時，先確認GitHub Pages上線的版本，不要預設是程式又壞了**：例如觀察頁的K線點進去用的就是持股頁/個股詳細頁那套已經修過的 `stock-detail.view.js`，沒有獨立實作。用 `curl https://wang123890-alt.github.io/Trade/js/features/<檔名> | grep <關鍵字>` 直接看部署上的內容有沒有包含修正，比再猜一輪「是不是又有新的根因」快，通常答案是「使用者測試時瀏覽器快取還是舊版」，提醒強制重新整理即可。
 
 ## 多AI協作公約（Claude × Grok）
