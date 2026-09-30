@@ -1786,6 +1786,30 @@
       "selfReview": "",
       "createdAt": "2026-09-30T02:07:37.077Z",
       "updatedAt": "2026-09-30T02:07:37.077Z"
+    },
+    {
+      "id": "tx_munh0duf_qhju36",
+      "stockId": "1584",
+      "stockName": "精剛",
+      "type": "BUY",
+      "dateTime": "2026-09-30",
+      "price": 18.95,
+      "quantity": 4000,
+      "fee": 108,
+      "tax": 0,
+      "strategy": "",
+      "reason": "漲幅大幅超過前幾天，成交量超過昨天近一倍",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "createdAt": "2026-09-30T02:12:53.656Z",
+      "updatedAt": "2026-09-30T02:12:53.656Z"
     }
   ],
   "watchlist": [
