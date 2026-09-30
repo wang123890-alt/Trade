@@ -1762,6 +1762,30 @@
       "selfReview": "",
       "createdAt": "2026-09-25T12:38:34.355Z",
       "updatedAt": "2026-09-25T12:38:34.355Z"
+    },
+    {
+      "id": "tx_mungtlkl_z4o6cj",
+      "stockId": "6531",
+      "stockName": "愛普*",
+      "type": "SELL",
+      "dateTime": "2026-09-30",
+      "price": 937,
+      "quantity": 100,
+      "fee": 134,
+      "tax": 281,
+      "strategy": "",
+      "reason": "多日無上漲跡象，走勢有偏下跡象",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "createdAt": "2026-09-30T02:07:37.077Z",
+      "updatedAt": "2026-09-30T02:07:37.077Z"
     }
   ],
   "watchlist": [
