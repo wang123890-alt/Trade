@@ -2210,6 +2210,16 @@
       "soldAt": "2026-09-09",
       "addedAt": "2026-09-12T10:28:44.732Z",
       "notes": []
+    },
+    {
+      "id": "watch_musf7jwu_ashkup",
+      "stockId": "1584",
+      "stockName": "精剛",
+      "source": "sold",
+      "soldPrice": 18.55,
+      "soldAt": "2026-10-01",
+      "addedAt": "2026-10-03T13:21:19.758Z",
+      "notes": []
     }
   ],
   "manualPrices": {
