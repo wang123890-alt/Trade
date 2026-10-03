@@ -1838,6 +1838,37 @@
       "ruleAutoNote": "尚未同時滿足「收盤<MA5 且 MA5<MA10」",
       "createdAt": "2026-10-03T13:21:14.986Z",
       "updatedAt": "2026-10-03T13:21:14.986Z"
+    },
+    {
+      "id": "tx_musf8ie7_mdb4uw",
+      "stockId": "2481",
+      "stockName": "強茂",
+      "type": "BUY",
+      "dateTime": "2026-10-01",
+      "price": 176.5,
+      "quantity": 400,
+      "fee": 101,
+      "tax": 0,
+      "strategy": "",
+      "reason": "",
+      "note": "",
+      "ruleTrend": "yes",
+      "ruleBreakout": "no",
+      "ruleAdx": "yes",
+      "ruleVolume": "no",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "ruleAuto": [
+        "ruleTrend",
+        "ruleBreakout",
+        "ruleAdx",
+        "ruleVolume"
+      ],
+      "ruleAutoNote": "未符合：未創20日新高、量能未達1×二十日均量",
+      "createdAt": "2026-10-03T13:22:04.447Z",
+      "updatedAt": "2026-10-03T13:22:04.447Z"
     }
   ],
   "watchlist": [
