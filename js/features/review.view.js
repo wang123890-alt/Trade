@@ -4,6 +4,8 @@ import { computeMA } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { formatMoney, formatDate, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
+import { computeAutoRules, RULE_KEYS } from '../core/autoRules.js';
+import { fetchBarsForAutoRules } from '../data/marketdata.js';
 
 async function loadBars(stockId) {
   try {
@@ -21,7 +23,9 @@ function dateKey(iso) {
 function sliceTradeWindow(bars, buyDate, sellDate) {
   if (!bars.length) return [];
   const buyI = bars.findIndex((b) => b.date >= buyDate);
-  const sellIRaw = bars.findIndex((b) => b.date >= sellDate);
+  // An open position (still held) passes '' for sellDate — there's no exit
+  // bar to anchor on, so the window just runs to the most recent bar instead.
+  const sellIRaw = sellDate ? bars.findIndex((b) => b.date >= sellDate) : -1;
   const sellI = sellIRaw === -1 ? bars.length - 1 : sellIRaw;
   const start = Math.max(0, (buyI === -1 ? 0 : buyI) - 15);
   const end = Math.min(bars.length, sellI + 9);
@@ -55,6 +59,19 @@ function buildSummary(buy, sell) {
   return parts.join('。') || '規則未填，無法自動總結';
 }
 
+// Whether tx's own rule* fields (per its type — BUY has four, SELL has one)
+// are all still blank, i.e. a "補算規則" button is worth offering.
+function needsAutoFill(tx) {
+  if (!tx?.id) return false;
+  const keys = RULE_KEYS[tx.type] || [];
+  return keys.length > 0 && keys.every((k) => !tx[k]);
+}
+
+function autoFillButton(tx, label) {
+  if (!needsAutoFill(tx)) return '';
+  return `<button class="btn btn-secondary" data-action="auto-fill-rules" data-tx-id="${escapeHtml(tx.id)}" style="margin-top:6px; font-size:12px;">${escapeHtml(label)}</button>`;
+}
+
 function ruleBlock(buy, sell) {
   const followed = sell.followedRules || buy.followedRules;
   const kind = sell.pnlKind || buy.pnlKind;
@@ -68,12 +85,14 @@ function ruleBlock(buy, sell) {
   const noteLines = [];
   if (buyAuto.length > 0 && buy.ruleAutoNote) noteLines.push(`買進規則為自動判斷：${escapeHtml(buy.ruleAutoNote)}`);
   if (sellAuto.length > 0 && sell.ruleAutoNote) noteLines.push(`賣出建議（自動判斷）：${escapeHtml(sell.ruleAutoNote)}`);
+  const buttons = [autoFillButton(buy, '補算進場規則'), sell.id ? autoFillButton(sell, '補算出場旗標') : ''].filter(Boolean);
   return `
     <div style="font-size:12.5px; line-height:1.8;">
       <div>當日進場規則：多頭 ${yn(buy.ruleTrend, buyAuto.includes('ruleTrend'))} · 前高 ${yn(buy.ruleBreakout, buyAuto.includes('ruleBreakout'))} · ADX ${yn(buy.ruleAdx, buyAuto.includes('ruleAdx'))} · 量 ${yn(buy.ruleVolume, buyAuto.includes('ruleVolume'))}</div>
-      <div>出場旗標：${yn(sell.ruleExitFlag, sellAuto.includes('ruleExitFlag'))}</div>
-      <div>有無遵守：${followed === 'yes' ? '<span class="text-red">有</span>' : followed === 'no' ? '<span class="text-green">沒有</span>' : '<span class="text-faint">未填</span>'} ${kindTag}</div>
+      ${sell.id ? `<div>出場旗標：${yn(sell.ruleExitFlag, sellAuto.includes('ruleExitFlag'))}</div>` : ''}
+      ${sell.id ? `<div>有無遵守：${followed === 'yes' ? '<span class="text-red">有</span>' : followed === 'no' ? '<span class="text-green">沒有</span>' : '<span class="text-faint">未填</span>'} ${kindTag}</div>` : ''}
       ${noteLines.length > 0 ? `<div class="text-faint" style="margin-top:2px;">${noteLines.join('<br>')}</div>` : ''}
+      ${buttons.length > 0 ? `<div style="display:flex; gap:8px; flex-wrap:wrap;">${buttons.join('')}</div>` : ''}
     </div>`;
 }
 
@@ -101,61 +120,112 @@ function renderMiniChart(windowBars, buyDate, sellDate) {
   });
 }
 
+function closedCardHtml(m, buy, sell) {
+  const name = buy.stockName || m.stockId;
+  return `
+    <div class="card" data-match-id="${escapeHtml(m.id)}" data-stock-id="${escapeHtml(m.stockId)}" style="margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+        <button class="stock-link" data-action="open-detail" data-stock-id="${escapeHtml(m.stockId)}" style="background:none;border:none;padding:0;cursor:pointer;text-align:left;color:inherit;font:inherit;font-size:15px;font-weight:700;">${escapeHtml(name)} <span class="text-faint" style="font-weight:500;font-size:12px;">${escapeHtml(m.stockId)}</span></button>
+        <div class="${pnlClass(m.realizedPnL)}" style="font-size:14px; font-weight:700;">${formatMoney(m.realizedPnL)}</div>
+      </div>
+      <div class="text-faint" style="font-size:12px; margin:4px 0 10px;">
+        <span class="text-red">買</span> ${formatDate(buy.dateTime)} @ ${buy.price} → <span class="text-green">賣</span> ${formatDate(sell.dateTime)} @ ${sell.price}
+      </div>
+      <div style="font-size:12px; font-weight:700; margin-bottom:6px;">買賣K圖</div>
+      <div class="review-chart" data-stock-id="${escapeHtml(m.stockId)}" data-buy="${escapeHtml(dateKey(buy.dateTime))}" data-sell="${escapeHtml(dateKey(sell.dateTime))}">
+        <div class="empty-state" style="padding:12px 0;">載入 K 線…</div>
+      </div>
+      <div style="margin-top:12px; font-size:12px; font-weight:700;">進出場原因</div>
+      <div style="font-size:12.5px; margin:4px 0 10px; line-height:1.6;">
+        <div><span class="text-red">進</span>：${escapeHtml(buy.reason || '未填')}</div>
+        <div><span class="text-green">出</span>：${escapeHtml(sell.reason || '未填')}</div>
+      </div>
+      ${ruleBlock(buy, sell)}
+      <div style="margin-top:12px; font-size:12px; font-weight:700;">總結</div>
+      <div class="text-dim" style="font-size:12.5px; margin:4px 0 10px; line-height:1.6;">${escapeHtml(buildSummary(buy, sell))}</div>
+      <div style="font-size:12px; font-weight:700;">自我解析</div>
+      <div class="form-field" style="margin-top:4px;">
+        <textarea data-self-review rows="2" placeholder="當時為何這樣做…">${escapeHtml(sell.selfReview || sell.note || '')}</textarea>
+      </div>
+      <button class="btn btn-primary" data-action="save-self" data-sell-id="${escapeHtml(sell.id || '')}" style="margin-top:6px;">儲存解析</button>
+    </div>`;
+}
+
+// Still-held position: same card shape as a closed trade, minus the parts
+// that don't exist yet (exit reason/flag, realized P&L) — the point of
+// adding this section is to let "覆盤" cover the current view on a trade
+// while it's still open, not just after it's closed.
+function openCardHtml(tx, remainingQty) {
+  const name = tx.stockName || tx.stockId;
+  return `
+    <div class="card" data-stock-id="${escapeHtml(tx.stockId)}" style="margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+        <button class="stock-link" data-action="open-detail" data-stock-id="${escapeHtml(tx.stockId)}" style="background:none;border:none;padding:0;cursor:pointer;text-align:left;color:inherit;font:inherit;font-size:15px;font-weight:700;">${escapeHtml(name)} <span class="text-faint" style="font-weight:500;font-size:12px;">${escapeHtml(tx.stockId)}</span></button>
+        <span class="tag">持有中 ${escapeHtml(String(remainingQty))}股</span>
+      </div>
+      <div class="text-faint" style="font-size:12px; margin:4px 0 10px;">
+        <span class="text-red">買</span> ${formatDate(tx.dateTime)} @ ${tx.price}
+      </div>
+      <div style="font-size:12px; font-weight:700; margin-bottom:6px;">買進後K圖</div>
+      <div class="review-chart" data-stock-id="${escapeHtml(tx.stockId)}" data-buy="${escapeHtml(dateKey(tx.dateTime))}" data-sell="">
+        <div class="empty-state" style="padding:12px 0;">載入 K 線…</div>
+      </div>
+      <div style="margin-top:12px; font-size:12px; font-weight:700;">進場原因</div>
+      <div style="font-size:12.5px; margin:4px 0 10px; line-height:1.6;">
+        <div><span class="text-red">進</span>：${escapeHtml(tx.reason || '未填')}</div>
+      </div>
+      ${ruleBlock(tx, {})}
+      <div style="font-size:12px; font-weight:700; margin-top:8px;">目前看法</div>
+      <div class="form-field" style="margin-top:4px;">
+        <textarea data-self-review rows="2" placeholder="目前看法…">${escapeHtml(tx.selfReview || tx.note || '')}</textarea>
+      </div>
+      <button class="btn btn-primary" data-action="save-self" data-sell-id="${escapeHtml(tx.id)}" style="margin-top:6px;">儲存解析</button>
+    </div>`;
+}
+
 function renderReviewView(container) {
-  const { transactions, matches } = recompute();
+  const { transactions, matches, openLots } = recompute();
   const byId = Object.fromEntries(transactions.map((t) => [t.id, t]));
   const closed = [...matches].sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
 
+  const openPositions = transactions
+    .filter((t) => t.type === 'BUY')
+    .map((t) => {
+      const lot = (openLots[t.stockId] || []).find((l) => l.txId === t.id);
+      return lot && lot.remainingQty > 0 ? { tx: t, remainingQty: lot.remainingQty } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.tx.dateTime) - new Date(a.tx.dateTime));
+
   container.innerHTML = `
     <div style="font-size:20px; font-weight:700; margin-bottom:12px;">覆盤</div>
-    <div class="text-faint" style="font-size:12px; margin-bottom:14px;">每筆已平倉：K 圖（紅漲綠跌）、原因、當日規則、總結、自我解析</div>
+    <div class="text-faint" style="font-size:12px; margin-bottom:14px;">持有中與已平倉：K 圖（紅漲綠跌）、原因、當日規則、總結、自我解析</div>
+    <div id="review-open-list"></div>
     <div id="review-list"></div>
   `;
 
-  const list = container.querySelector('#review-list');
-  if (closed.length === 0) {
-    list.innerHTML = '<div class="empty-state">還沒有已平倉的交易</div>';
-    return;
+  const openList = container.querySelector('#review-open-list');
+  if (openPositions.length > 0) {
+    openList.innerHTML = `<div style="font-size:14px; font-weight:700; margin-bottom:8px;">持有中</div>`
+      + openPositions.map(({ tx, remainingQty }) => openCardHtml(tx, remainingQty)).join('');
   }
 
-  list.innerHTML = closed.map((m) => {
-    const buy = byId[m.buyTransactionId] || {};
-    const sell = byId[m.sellTransactionId] || {};
-    const name = buy.stockName || m.stockId;
-    return `
-      <div class="card" data-match-id="${escapeHtml(m.id)}" data-stock-id="${escapeHtml(m.stockId)}" style="margin-bottom:14px;">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
-          <button class="stock-link" data-action="open-detail" data-stock-id="${escapeHtml(m.stockId)}" style="background:none;border:none;padding:0;cursor:pointer;text-align:left;color:inherit;font:inherit;font-size:15px;font-weight:700;">${escapeHtml(name)} <span class="text-faint" style="font-weight:500;font-size:12px;">${escapeHtml(m.stockId)}</span></button>
-          <div class="${pnlClass(m.realizedPnL)}" style="font-size:14px; font-weight:700;">${formatMoney(m.realizedPnL)}</div>
-        </div>
-        <div class="text-faint" style="font-size:12px; margin:4px 0 10px;">
-          <span class="text-red">買</span> ${formatDate(buy.dateTime)} @ ${buy.price} → <span class="text-green">賣</span> ${formatDate(sell.dateTime)} @ ${sell.price}
-        </div>
-        <div style="font-size:12px; font-weight:700; margin-bottom:6px;">買賣K圖</div>
-        <div class="review-chart" data-stock-id="${escapeHtml(m.stockId)}" data-buy="${escapeHtml(dateKey(buy.dateTime))}" data-sell="${escapeHtml(dateKey(sell.dateTime))}">
-          <div class="empty-state" style="padding:12px 0;">載入 K 線…</div>
-        </div>
-        <div style="margin-top:12px; font-size:12px; font-weight:700;">進出場原因</div>
-        <div style="font-size:12.5px; margin:4px 0 10px; line-height:1.6;">
-          <div><span class="text-red">進</span>：${escapeHtml(buy.reason || '未填')}</div>
-          <div><span class="text-green">出</span>：${escapeHtml(sell.reason || '未填')}</div>
-        </div>
-        ${ruleBlock(buy, sell)}
-        <div style="margin-top:12px; font-size:12px; font-weight:700;">總結</div>
-        <div class="text-dim" style="font-size:12.5px; margin:4px 0 10px; line-height:1.6;">${escapeHtml(buildSummary(buy, sell))}</div>
-        <div style="font-size:12px; font-weight:700;">自我解析</div>
-        <div class="form-field" style="margin-top:4px;">
-          <textarea data-self-review rows="2" placeholder="當時為何這樣做…">${escapeHtml(sell.selfReview || sell.note || '')}</textarea>
-        </div>
-        <button class="btn btn-primary" data-action="save-self" data-sell-id="${escapeHtml(sell.id || '')}" style="margin-top:6px;">儲存解析</button>
-      </div>`;
-  }).join('');
+  const list = container.querySelector('#review-list');
+  if (closed.length === 0) {
+    if (openPositions.length === 0) list.innerHTML = '<div class="empty-state">還沒有交易紀錄</div>';
+    // else: nothing to show here, but fall through — the 持有中 section above
+    // still needs its event listeners and K-line charts wired up below.
+  } else {
+    list.innerHTML = (openPositions.length > 0 ? `<div style="font-size:14px; font-weight:700; margin-bottom:8px;">已平倉</div>` : '')
+      + closed.map((m) => closedCardHtml(m, byId[m.buyTransactionId] || {}, byId[m.sellTransactionId] || {})).join('');
+  }
+  if (closed.length === 0 && openPositions.length === 0) return;
 
-  list.querySelectorAll('[data-action="open-detail"]').forEach((btn) => {
+  container.querySelectorAll('[data-action="open-detail"]').forEach((btn) => {
     btn.addEventListener('click', () => navigate('detail', btn.getAttribute('data-stock-id')));
   });
 
-  list.querySelectorAll('[data-action="save-self"]').forEach((btn) => {
+  container.querySelectorAll('[data-action="save-self"]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-sell-id');
       if (!id) return;
@@ -170,7 +240,40 @@ function renderReviewView(container) {
     });
   });
 
-  const slots = [...list.querySelectorAll('.review-chart')];
+  container.querySelectorAll('[data-action="auto-fill-rules"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const txId = btn.getAttribute('data-tx-id');
+      const tx = byId[txId];
+      if (!tx) return;
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = '判斷中…';
+      try {
+        const auto = await computeAutoRules(fetchBarsForAutoRules, tx.stockId, tx.dateTime, tx.type);
+        if (!auto) {
+          btn.textContent = '資料不足，無法判斷';
+          btn.disabled = false;
+          return;
+        }
+        const { errors } = await editTransaction(tx.id, {
+          ...auto.fields,
+          ruleAuto: Object.keys(auto.fields),
+          ruleAutoNote: auto.note,
+        });
+        if (errors.length > 0) {
+          btn.textContent = errors[0];
+          btn.disabled = false;
+          return;
+        }
+        renderReviewView(container);
+      } catch {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    });
+  });
+
+  const slots = [...container.querySelectorAll('.review-chart')];
   const uniqueIds = [...new Set(slots.map((el) => el.getAttribute('data-stock-id')))];
   uniqueIds.forEach(async (stockId) => {
     const bars = await loadBars(stockId);

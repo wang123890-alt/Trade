@@ -4,21 +4,8 @@ import { addWatchItem } from './watchlist.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { formatMoney, formatDate, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
-import { computeAutoRules } from '../core/autoRules.js';
-import { YahooFinanceProvider, FinMindProvider } from '../data/marketdata.js';
-
-const RULE_KEYS = {
-  BUY: ['ruleTrend', 'ruleBreakout', 'ruleAdx', 'ruleVolume'],
-  SELL: ['ruleExitFlag'],
-};
-
-async function fetchBarsForAutoRules(stockId, startDate) {
-  try {
-    const bars = await YahooFinanceProvider.getKLine(stockId, { startDate });
-    if (bars?.length) return bars;
-  } catch { /* fall through to FinMind */ }
-  return FinMindProvider.getKLine(stockId, { startDate });
-}
+import { computeAutoRules, RULE_KEYS } from '../core/autoRules.js';
+import { fetchBarsForAutoRules } from '../data/marketdata.js';
 
 const FEE_RATE = 0.001425;
 const TAX_RATE = 0.003;

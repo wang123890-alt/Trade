@@ -13,6 +13,14 @@ import { computeTradeLevels, ENTRY_ADX_MIN, ENTRY_VOL_RATIO } from './tradeLevel
 const LOOKBACK_DAYS = 150;
 const MIN_BARS = 60;
 
+// Which rule* keys apply to each transaction type — shared by
+// transactions.view.js (decide whether to auto-fill on submit) and
+// review.view.js (decide whether to offer "補算規則" on an existing row).
+const RULE_KEYS = {
+  BUY: ['ruleTrend', 'ruleBreakout', 'ruleAdx', 'ruleVolume'],
+  SELL: ['ruleExitFlag'],
+};
+
 function startDateFor(dateTime) {
   const d = String(dateTime).slice(0, 10);
   const start = new Date(`${d}T00:00:00Z`);
@@ -67,4 +75,4 @@ async function computeAutoRules(fetchBars, stockId, dateTime, type) {
   };
 }
 
-export { computeAutoRules };
+export { computeAutoRules, RULE_KEYS };
