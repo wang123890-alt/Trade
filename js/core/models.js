@@ -9,6 +9,15 @@
  *   followedRules : '' | 'yes' | 'no'
  *   pnlKind : '' | 'rule' | 'broke'
  *   selfReview : free text written on the review page
+ *
+ * ruleAuto / ruleAutoNote (2026-10-03): when the user left the rule fields
+ * above blank on submit, transactions.view.js auto-fills them from that
+ * day's K-line (js/core/autoRules.js) instead of leaving a silent blank.
+ * ruleAuto lists which of the rule* keys were filled this way (empty = all
+ * user-filled, or no history to judge from); ruleAutoNote carries the basis
+ * text (e.g. which entry condition failed, or the exit-flag reasoning) so
+ * review.view.js can show *why*, not just yes/no. A field the user actually
+ * typed is never overwritten.
  */
 function createTransaction({
   id,
@@ -31,6 +40,8 @@ function createTransaction({
   followedRules = '',
   pnlKind = '',
   selfReview = '',
+  ruleAuto = [],
+  ruleAutoNote = '',
   createdAt = new Date().toISOString(),
   updatedAt = new Date().toISOString(),
 }) {
@@ -55,6 +66,8 @@ function createTransaction({
     followedRules,
     pnlKind,
     selfReview,
+    ruleAuto,
+    ruleAutoNote,
     createdAt,
     updatedAt,
   };
