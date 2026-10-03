@@ -1,4 +1,4 @@
-import { recompute, addTransaction, deleteTransaction } from './transactions.js';
+import { recompute, addTransaction, editTransaction, deleteTransaction } from './transactions.js';
 import { bindStockLookup } from './stockLookup.bind.js';
 import { addWatchItem } from './watchlist.js';
 import { ManualPriceRepository } from '../data/storage.js';
@@ -235,20 +235,47 @@ function buildDisplayRows(transactions, matches, openLots, errors, manualPrices)
   for (const tx of transactions) {
     if (tx.type !== 'BUY') continue;
     for (const m of matchesByBuyId[tx.id] || []) {
-      rows.push({ kind: 'sold', date: m.closedAt, stockId: tx.stockId, stockName: tx.stockName, quantity: m.quantity, buyPrice: m.buyPrice, sellPrice: m.sellPrice, realizedPnL: m.realizedPnL, deleteId: m.sellTransactionId });
+      rows.push({ kind: 'sold', date: m.closedAt, stockId: tx.stockId, stockName: tx.stockName, quantity: m.quantity, buyPrice: m.buyPrice, sellPrice: m.sellPrice, realizedPnL: m.realizedPnL, deleteId: m.sellTransactionId, buyId: tx.id, sellId: m.sellTransactionId });
     }
     const lot = (openLots[tx.stockId] || []).find((l) => l.txId === tx.id);
     const remainingQty = lot ? lot.remainingQty : 0;
     if (remainingQty > 0) {
       const marketPrice = manualPrices[tx.stockId] ?? null;
-      rows.push({ kind: 'holding', date: tx.dateTime, stockId: tx.stockId, stockName: tx.stockName, quantity: remainingQty, costPrice: tx.price, marketPrice, residualValue: marketPrice != null ? marketPrice * remainingQty : null, deleteId: tx.id });
+      rows.push({ kind: 'holding', date: tx.dateTime, stockId: tx.stockId, stockName: tx.stockName, quantity: remainingQty, costPrice: tx.price, marketPrice, residualValue: marketPrice != null ? marketPrice * remainingQty : null, deleteId: tx.id, buyId: tx.id });
     }
   }
   for (const { transaction: tx } of errors) {
-    rows.push({ kind: 'unmatched-sell', date: tx.dateTime, stockId: tx.stockId, stockName: tx.stockName, quantity: tx.quantity, price: tx.price, deleteId: tx.id });
+    rows.push({ kind: 'unmatched-sell', date: tx.dateTime, stockId: tx.stockId, stockName: tx.stockName, quantity: tx.quantity, price: tx.price, deleteId: tx.id, sellId: tx.id });
   }
   rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   return rows;
+}
+
+// Strategy/reason/note were, until now, only ever set once — at "新增交易"
+// submit time — with no way back in. A typo or an afterthought ("補充原因")
+// had nowhere to go. This renders one editable block per transaction a row
+// touches (a 'sold' row touches both its BUY and its SELL), label matching
+// which side it's on ("進場原因" vs "出場原因") since that's the field the
+// user actually asked to fix.
+function editBlockHtml(tx, label) {
+  if (!tx) return '';
+  return `
+    <div class="tx-edit-block" data-edit-tx-id="${escapeHtml(tx.id)}" style="margin-top:8px; padding:10px; border:1px solid var(--border); border-radius:8px;">
+      <div style="font-size:11px; font-weight:600; margin-bottom:6px; color:var(--text-faint);">${escapeHtml(label)}</div>
+      <div class="form-field">
+        <label style="font-size:11px;">策略標籤</label>
+        <input type="text" data-edit-field="strategy" value="${escapeHtml(tx.strategy || '')}">
+      </div>
+      <div class="form-field" style="margin-top:6px;">
+        <label style="font-size:11px;">${escapeHtml(label)}</label>
+        <input type="text" data-edit-field="reason" value="${escapeHtml(tx.reason || '')}">
+      </div>
+      <div class="form-field" style="margin-top:6px;">
+        <label style="font-size:11px;">備註</label>
+        <input type="text" data-edit-field="note" value="${escapeHtml(tx.note || '')}">
+      </div>
+      <button class="btn btn-primary" data-action="save-edit" data-edit-tx-id="${escapeHtml(tx.id)}" style="margin-top:8px; font-size:12px;">儲存</button>
+    </div>`;
 }
 
 function renderRow(row) {
@@ -269,6 +296,7 @@ function renderList(container) {
   const listEl = container.querySelector('#tx-list');
   const manualPrices = ManualPriceRepository.getAll();
   const { transactions, matches, openLots, errors } = recompute(manualPrices);
+  const byId = Object.fromEntries(transactions.map((t) => [t.id, t]));
   if (transactions.length === 0) {
     listEl.innerHTML = '<div class="empty-state">還沒有任何交易紀錄</div>';
     return;
@@ -276,7 +304,21 @@ function renderList(container) {
   const rows = buildDisplayRows(transactions, matches, openLots, errors, manualPrices);
   listEl.innerHTML = rows.map((row) => {
     const { left, right } = renderRow(row);
-    return `<div class="tx-row" data-tx-id="${row.deleteId}"><div>${left}</div><div style="display:flex; align-items:center; gap:4px;"><div style="text-align:right; margin-right:6px;">${right}</div><button class="icon-btn" data-action="delete" title="刪除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></button></div></div>`;
+    const editPanel = [
+      row.buyId ? editBlockHtml(byId[row.buyId], '進場原因') : '',
+      row.sellId ? editBlockHtml(byId[row.sellId], '出場原因') : '',
+    ].join('');
+    return `<div class="tx-row-wrap">
+      <div class="tx-row" data-tx-id="${row.deleteId}">
+        <div>${left}</div>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <div style="text-align:right; margin-right:6px;">${right}</div>
+          <button class="icon-btn" data-action="toggle-edit" title="編輯"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+          <button class="icon-btn" data-action="delete" title="刪除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></button>
+        </div>
+      </div>
+      <div class="tx-edit-panel" style="display:none;">${editPanel}</div>
+    </div>`;
   }).join('');
   listEl.querySelectorAll('[data-action="view-detail"]').forEach((btn) => {
     btn.addEventListener('click', () => navigate('detail', btn.getAttribute('data-stock-id')));
@@ -288,6 +330,32 @@ function renderList(container) {
       btn.disabled = true;
       const { success, errors: deleteErrors } = await deleteTransaction(id);
       if (!success) { alert(deleteErrors.join('；')); btn.disabled = false; return; }
+      renderList(container);
+    });
+  });
+  listEl.querySelectorAll('[data-action="toggle-edit"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const panel = btn.closest('.tx-row-wrap').querySelector('.tx-edit-panel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+  listEl.querySelectorAll('[data-action="save-edit"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const block = btn.closest('.tx-edit-block');
+      const id = block.getAttribute('data-edit-tx-id');
+      const strategy = block.querySelector('[data-edit-field="strategy"]').value;
+      const reason = block.querySelector('[data-edit-field="reason"]').value;
+      const note = block.querySelector('[data-edit-field="note"]').value;
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = '儲存中…';
+      const { errors: editErrors } = await editTransaction(id, { strategy, reason, note });
+      if (editErrors.length > 0) {
+        btn.disabled = false;
+        btn.textContent = editErrors[0];
+        setTimeout(() => { btn.textContent = original; }, 1800);
+        return;
+      }
       renderList(container);
     });
   });
