@@ -1783,9 +1783,9 @@
       "ruleExitFlag": "",
       "followedRules": "",
       "pnlKind": "",
-      "selfReview": "",
+      "selfReview": "停損過早，2號大漲",
       "createdAt": "2026-09-30T02:07:37.077Z",
-      "updatedAt": "2026-09-30T02:07:37.077Z"
+      "updatedAt": "2026-10-03T13:32:09.002Z"
     },
     {
       "id": "tx_munh0duf_qhju36",
@@ -1810,6 +1810,65 @@
       "selfReview": "",
       "createdAt": "2026-09-30T02:12:53.656Z",
       "updatedAt": "2026-09-30T02:12:53.656Z"
+    },
+    {
+      "id": "tx_musf7g89_jdgvgu",
+      "stockId": "1584",
+      "stockName": "精剛",
+      "type": "SELL",
+      "dateTime": "2026-10-01",
+      "price": 18.55,
+      "quantity": 4000,
+      "fee": 106,
+      "tax": 223,
+      "strategy": "",
+      "reason": "",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "no",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "買進隔日開高走低，量比買進日低甚多，萌生停損，適逢林昇選出，孤兒停損轉強茂",
+      "ruleAuto": [
+        "ruleExitFlag"
+      ],
+      "ruleAutoNote": "尚未同時滿足「收盤<MA5 且 MA5<MA10」",
+      "createdAt": "2026-10-03T13:21:14.986Z",
+      "updatedAt": "2026-10-03T13:31:17.195Z"
+    },
+    {
+      "id": "tx_musf8ie7_mdb4uw",
+      "stockId": "2481",
+      "stockName": "強茂",
+      "type": "BUY",
+      "dateTime": "2026-10-01",
+      "price": 176.5,
+      "quantity": 400,
+      "fee": 101,
+      "tax": 0,
+      "strategy": "",
+      "reason": "",
+      "note": "",
+      "ruleTrend": "yes",
+      "ruleBreakout": "no",
+      "ruleAdx": "yes",
+      "ruleVolume": "no",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "ruleAuto": [
+        "ruleTrend",
+        "ruleBreakout",
+        "ruleAdx",
+        "ruleVolume"
+      ],
+      "ruleAutoNote": "未符合：未創20日新高、量能未達1×二十日均量",
+      "createdAt": "2026-10-03T13:22:04.447Z",
+      "updatedAt": "2026-10-03T13:22:04.447Z"
     }
   ],
   "watchlist": [
@@ -2182,6 +2241,16 @@
       "soldAt": "2026-09-09",
       "addedAt": "2026-09-12T10:28:44.732Z",
       "notes": []
+    },
+    {
+      "id": "watch_musf7jwu_ashkup",
+      "stockId": "1584",
+      "stockName": "精剛",
+      "source": "sold",
+      "soldPrice": 18.55,
+      "soldAt": "2026-10-01",
+      "addedAt": "2026-10-03T13:21:19.758Z",
+      "notes": []
     }
   ],
   "manualPrices": {
@@ -2204,6 +2273,12 @@
     "0050": 112.05
   },
   "stockNotes": {
+    "2481": [
+      {
+        "time": "2026-10-03T13:33:51.272Z",
+        "text": "因林昇，算嘗試"
+      }
+    ],
     "6657": [
       {
         "time": "2026-09-25T12:31:29.386Z",
