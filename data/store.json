@@ -1831,13 +1831,13 @@
       "ruleExitFlag": "no",
       "followedRules": "",
       "pnlKind": "",
-      "selfReview": "",
+      "selfReview": "買進隔日開高走低，量比買進日低甚多，萌生停損，適逢林昇選出，孤兒停損轉強茂",
       "ruleAuto": [
         "ruleExitFlag"
       ],
       "ruleAutoNote": "尚未同時滿足「收盤<MA5 且 MA5<MA10」",
       "createdAt": "2026-10-03T13:21:14.986Z",
-      "updatedAt": "2026-10-03T13:21:14.986Z"
+      "updatedAt": "2026-10-03T13:31:17.195Z"
     },
     {
       "id": "tx_musf8ie7_mdb4uw",
