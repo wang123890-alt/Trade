@@ -372,6 +372,19 @@ const YahooFinanceProvider = {
   },
 };
 
+/** Bars provider for js/core/autoRules.js (2026-10-03): arbitrary-range
+ * history, same Yahoo-first/FinMind-fallback order as loadKLine.js's
+ * historyOnce(), but with startDate forwarded so past trade dates (not just
+ * "today") can be judged. Shared by transactions.view.js (new entries) and
+ * review.view.js ("補算規則" on existing ones) so both use one lookup path. */
+async function fetchBarsForAutoRules(stockId, startDate) {
+  try {
+    const bars = await YahooFinanceProvider.getKLine(stockId, { startDate });
+    if (bars?.length) return bars;
+  } catch { /* fall through to FinMind */ }
+  return FinMindProvider.getKLine(stockId, { startDate });
+}
+
 // Source order below is 證交所 (TWSE MIS) → 雅虎股市 → FinMind, tried STRICTLY IN
 // ORDER: nothing else is requested while the exchange is still answering.
 //
@@ -501,4 +514,4 @@ function defaultStartDate() {
   return d.toISOString().slice(0, 10);
 }
 
-export { FinMindProvider, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote, getLiveQuotes, CsvProvider, MarketDataError };
+export { FinMindProvider, TwseRealtimeProvider, YahooFinanceProvider, getLiveQuote, getLiveQuotes, CsvProvider, MarketDataError, fetchBarsForAutoRules };
