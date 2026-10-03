@@ -28,9 +28,10 @@ function sliceTradeWindow(bars, buyDate, sellDate) {
   return bars.slice(start, end);
 }
 
-function yn(v) {
-  if (v === 'yes') return '<span class="text-red">是</span>';
-  if (v === 'no') return '<span class="text-green">否</span>';
+function yn(v, isAuto) {
+  const tag = isAuto ? ' <span class="text-faint" style="font-size:11px;">(自動判斷)</span>' : '';
+  if (v === 'yes') return `<span class="text-red">是</span>${tag}`;
+  if (v === 'no') return `<span class="text-green">否</span>${tag}`;
   return '<span class="text-faint">未填</span>';
 }
 
@@ -62,11 +63,17 @@ function ruleBlock(buy, sell) {
     : kind === 'rule'
       ? '<span class="tag tag-accent">規則內試錯</span>'
       : '<span class="tag">未歸類</span>';
+  const buyAuto = buy.ruleAuto || [];
+  const sellAuto = sell.ruleAuto || [];
+  const noteLines = [];
+  if (buyAuto.length > 0 && buy.ruleAutoNote) noteLines.push(`買進規則為自動判斷：${escapeHtml(buy.ruleAutoNote)}`);
+  if (sellAuto.length > 0 && sell.ruleAutoNote) noteLines.push(`賣出建議（自動判斷）：${escapeHtml(sell.ruleAutoNote)}`);
   return `
     <div style="font-size:12.5px; line-height:1.8;">
-      <div>當日進場規則：多頭 ${yn(buy.ruleTrend)} · 前高 ${yn(buy.ruleBreakout)} · ADX ${yn(buy.ruleAdx)} · 量 ${yn(buy.ruleVolume)}</div>
-      <div>出場旗標：${yn(sell.ruleExitFlag)}</div>
+      <div>當日進場規則：多頭 ${yn(buy.ruleTrend, buyAuto.includes('ruleTrend'))} · 前高 ${yn(buy.ruleBreakout, buyAuto.includes('ruleBreakout'))} · ADX ${yn(buy.ruleAdx, buyAuto.includes('ruleAdx'))} · 量 ${yn(buy.ruleVolume, buyAuto.includes('ruleVolume'))}</div>
+      <div>出場旗標：${yn(sell.ruleExitFlag, sellAuto.includes('ruleExitFlag'))}</div>
       <div>有無遵守：${followed === 'yes' ? '<span class="text-red">有</span>' : followed === 'no' ? '<span class="text-green">沒有</span>' : '<span class="text-faint">未填</span>'} ${kindTag}</div>
+      ${noteLines.length > 0 ? `<div class="text-faint" style="margin-top:2px;">${noteLines.join('<br>')}</div>` : ''}
     </div>`;
 }
 

@@ -4,6 +4,21 @@ import { addWatchItem } from './watchlist.js';
 import { ManualPriceRepository } from '../data/storage.js';
 import { formatMoney, formatDate, pnlClass, escapeHtml } from '../utils/format.js';
 import { navigate } from '../router.js';
+import { computeAutoRules } from '../core/autoRules.js';
+import { YahooFinanceProvider, FinMindProvider } from '../data/marketdata.js';
+
+const RULE_KEYS = {
+  BUY: ['ruleTrend', 'ruleBreakout', 'ruleAdx', 'ruleVolume'],
+  SELL: ['ruleExitFlag'],
+};
+
+async function fetchBarsForAutoRules(stockId, startDate) {
+  try {
+    const bars = await YahooFinanceProvider.getKLine(stockId, { startDate });
+    if (bars?.length) return bars;
+  } catch { /* fall through to FinMind */ }
+  return FinMindProvider.getKLine(stockId, { startDate });
+}
 
 const FEE_RATE = 0.001425;
 const TAX_RATE = 0.003;
@@ -187,6 +202,24 @@ function renderTransactionsView(container) {
     };
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
+
+    // Rule checklist left entirely blank: try to fill it from that day's
+    // K-line instead of saving a silent blank. Never overwrites a field the
+    // user actually picked, and a failed/insufficient lookup just leaves the
+    // fields blank as before — it's a convenience, not a requirement to save.
+    const ruleKeys = RULE_KEYS[input.type] || [];
+    if (ruleKeys.length > 0 && ruleKeys.every((k) => !input[k]) && input.stockId && input.dateTime) {
+      submitBtn.textContent = '判斷規則中…';
+      try {
+        const auto = await computeAutoRules(fetchBarsForAutoRules, input.stockId, input.dateTime, input.type);
+        if (auto) {
+          Object.assign(input, auto.fields);
+          input.ruleAuto = Object.keys(auto.fields);
+          input.ruleAutoNote = auto.note;
+        }
+      } catch { /* K線抓不到就維持空白，不擋提交 */ }
+    }
+
     submitBtn.textContent = '儲存中…';
     const { errors } = await addTransaction(input);
     submitBtn.disabled = false;
