@@ -69,7 +69,7 @@ function needsAutoFill(tx) {
 
 function autoFillButton(tx, label) {
   if (!needsAutoFill(tx)) return '';
-  return `<button class="btn btn-secondary" data-action="auto-fill-rules" data-tx-id="${escapeHtml(tx.id)}" style="margin-top:6px; font-size:12px;">${escapeHtml(label)}</button>`;
+  return `<button class="btn" data-action="auto-fill-rules" data-tx-id="${escapeHtml(tx.id)}" style="margin-top:6px; font-size:12px;">${escapeHtml(label)}</button>`;
 }
 
 function ruleBlock(buy, sell) {
