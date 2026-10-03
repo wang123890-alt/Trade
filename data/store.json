@@ -1810,6 +1810,34 @@
       "selfReview": "",
       "createdAt": "2026-09-30T02:12:53.656Z",
       "updatedAt": "2026-09-30T02:12:53.656Z"
+    },
+    {
+      "id": "tx_musf7g89_jdgvgu",
+      "stockId": "1584",
+      "stockName": "精剛",
+      "type": "SELL",
+      "dateTime": "2026-10-01",
+      "price": 18.55,
+      "quantity": 4000,
+      "fee": 106,
+      "tax": 223,
+      "strategy": "",
+      "reason": "",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "no",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "ruleAuto": [
+        "ruleExitFlag"
+      ],
+      "ruleAutoNote": "尚未同時滿足「收盤<MA5 且 MA5<MA10」",
+      "createdAt": "2026-10-03T13:21:14.986Z",
+      "updatedAt": "2026-10-03T13:21:14.986Z"
     }
   ],
   "watchlist": [
