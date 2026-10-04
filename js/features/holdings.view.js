@@ -1,6 +1,7 @@
 import { recompute } from './transactions.js';
 import { ManualPriceRepository, StockAiAnalysisRepository } from '../data/storage.js';
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
+import { loadInstitutionalData } from '../data/institutionalData.js';
 import { classifyAiAnalysisText, appendAiAnalysis } from '../core/aiAnalysisImport.js';
 import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass, escapeHtml } from '../utils/format.js';
@@ -79,6 +80,12 @@ function render(container) {
     const btn = e.currentTarget;
     btn.disabled = true;
     btn.textContent = '更新中…';
+    // Institutional data is a static file written by a scheduled GitHub
+    // Action (see js/data/institutionalData.js), never fetched live from
+    // here — this just re-reads it bypassing cache, in case the Action ran
+    // since the page loaded. Never throws, so no need to await/catch it
+    // alongside the actual price refresh below.
+    loadInstitutionalData({ fresh: true });
     try {
       const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
       const prices = {};
@@ -179,6 +186,7 @@ function render(container) {
       const stockId = cardEl.getAttribute('data-stock-id');
       btn.disabled = true;
       btn.textContent = '取得中…';
+      loadInstitutionalData({ fresh: true });
       let price = null;
       let fetchError = null;
       try {
