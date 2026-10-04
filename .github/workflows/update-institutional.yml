@@ -1,0 +1,42 @@
+name: Update institutional net buy/sell data
+
+# 15:00 Asia/Taipei (07:00 UTC) weekdays, after TWSE's ~13:30 close — see
+# scripts/updateInstitutional.mjs for the fetch logic and CLAUDE.md「法人買
+# 賣超」條目 for why this runs on a schedule instead of being called live
+# from the browser (the Google Drive API's key has nowhere safe to live in a
+# static site's client-side JS).
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-institutional
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch institutional data
+        env:
+          TW_STOCK_API_URL: ${{ secrets.TW_STOCK_API_URL }}
+          TW_STOCK_API_KEY: ${{ secrets.TW_STOCK_API_KEY }}
+        run: node scripts/updateInstitutional.mjs
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/institutional.json
+          git diff --cached --quiet || git commit -m "更新法人買賣超資料"
+          git push

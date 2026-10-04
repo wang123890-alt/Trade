@@ -1,6 +1,7 @@
 import { recompute } from './transactions.js';
 import { StockNotesRepository } from '../data/storage.js';
 import { CsvProvider, MarketDataError } from '../data/marketdata.js';
+import { getInstitutionalHistory } from '../data/institutionalData.js';
 import { loadKLineFast } from '../data/loadKLine.js';
 import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
@@ -40,13 +41,64 @@ async function renderStockDetailView(container, stockId) {
     </div>
     ${lastTx ? `<div class="text-faint" style="font-size:12px; margin:0 0 12px 42px;">最後交易日 ${formatDate(lastTx.dateTime)} · 成交價 ${lastTx.price}</div>` : ''}
     <div id="chart-area" class="card"><div class="empty-state">載入K線資料中…</div></div>
+    <div id="institutional-area"></div>
     <div id="notes-area"></div>
     <div id="review-area"></div>
   `;
   container.querySelector('#back-btn').addEventListener('click', () => window.history.back());
   await loadAndRenderChart(container, stockId, stockTx);
+  renderInstitutional(container, stockId);
   renderNotes(container, stockId);
   renderStockLossReview(container, stockId, matches, transactions);
+}
+
+function fmtNet(n) {
+  if (n == null) return '<span class="text-faint">—</span>';
+  const shares = Math.round(n / 1000); // 股數換算成張，跟台股慣用單位一致
+  const cls = n > 0 ? 'text-red' : n < 0 ? 'text-green' : '';
+  const sign = n > 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${shares.toLocaleString('zh-TW')}</span>`;
+}
+
+// 三大法人買賣超是靜態檔（data/institutional.json，排程寫入，見
+// scripts/updateInstitutional.mjs），這裡純粹讀檔顯示，沒有該股資料時整塊
+// 不畫——可能是非持股/非觀察名單（排程本來就只抓這兩類）、該股是上櫃且
+// Drive那天剛好沒資料（官方T86備援只涵蓋上市），或還沒跑過排程。
+async function renderInstitutional(container, stockId) {
+  const area = container.querySelector('#institutional-area');
+  if (!area) return;
+  const history = await getInstitutionalHistory(stockId);
+  if (!area.isConnected || history.length === 0) {
+    area.innerHTML = '';
+    return;
+  }
+  const rows = [...history].reverse(); // 最新的日期排最上面
+  area.innerHTML = `
+    <div class="card" style="margin-top:12px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">三大法人買賣超（近${rows.length}個交易日 · 單位：張）</div>
+      <table style="width:100%; font-size:12px; border-collapse:collapse;">
+        <thead>
+          <tr class="text-faint" style="text-align:right;">
+            <th style="text-align:left; font-weight:500; padding-bottom:4px;">日期</th>
+            <th style="font-weight:500; padding-bottom:4px;">外資</th>
+            <th style="font-weight:500; padding-bottom:4px;">投信</th>
+            <th style="font-weight:500; padding-bottom:4px;">自營商</th>
+            <th style="font-weight:500; padding-bottom:4px;">合計</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => `
+            <tr style="text-align:right;">
+              <td style="text-align:left; padding:3px 0;">${escapeHtml(r.date.slice(5))}</td>
+              <td style="padding:3px 0;">${fmtNet(r.foreign_net)}</td>
+              <td style="padding:3px 0;">${fmtNet(r.trust_net)}</td>
+              <td style="padding:3px 0;">${fmtNet(r.dealer_net)}</td>
+              <td style="padding:3px 0; font-weight:600;">${fmtNet(r.inst_total_net)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="text-faint" style="font-size:11px; margin-top:6px;">資料來源：台股資料API／證交所公開資訊，每日收盤後排程更新，非即時</div>
+    </div>`;
 }
 
 async function loadAndRenderChart(container, stockId, stockTx) {
