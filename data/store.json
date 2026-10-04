@@ -2258,6 +2258,16 @@
       "soldAt": "2026-10-01",
       "addedAt": "2026-10-03T13:21:19.758Z",
       "notes": []
+    },
+    {
+      "id": "watch_muu0yo7m_gqd3yy",
+      "stockId": "5371",
+      "stockName": "中光電",
+      "source": "manual",
+      "soldPrice": null,
+      "soldAt": null,
+      "addedAt": "2026-10-04T16:18:03.154Z",
+      "notes": []
     }
   ],
   "manualPrices": {
