@@ -1752,16 +1752,23 @@
       "strategy": "",
       "reason": "大幅上張，突破各均線，成交量大於前幾日甚多",
       "note": "",
-      "ruleTrend": "",
-      "ruleBreakout": "",
-      "ruleAdx": "",
-      "ruleVolume": "",
+      "ruleTrend": "no",
+      "ruleBreakout": "yes",
+      "ruleAdx": "no",
+      "ruleVolume": "yes",
       "ruleExitFlag": "",
       "followedRules": "",
       "pnlKind": "",
       "selfReview": "",
       "createdAt": "2026-09-25T12:38:34.355Z",
-      "updatedAt": "2026-09-25T12:38:34.355Z"
+      "updatedAt": "2026-10-04T12:29:05.463Z",
+      "ruleAuto": [
+        "ruleTrend",
+        "ruleBreakout",
+        "ruleAdx",
+        "ruleVolume"
+      ],
+      "ruleAutoNote": "未符合：非多頭排列（橫盤/盤整不進）、ADX未達25"
     },
     {
       "id": "tx_mungtlkl_z4o6cj",
