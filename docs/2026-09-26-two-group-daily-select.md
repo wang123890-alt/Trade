@@ -1,6 +1,12 @@
 # 兩組每日選股（10日循環）
 
-2026-09-26 規格。2026-09-27 補 Choose／Termux。不改 FIFO／帳。App 進出場程式尚未改。
+2026-09-26 規格。2026-09-27 補 Choose／Termux。2026-10-05：與 Trade 不接。不改 FIFO／帳。App 進出場程式尚未改。
+
+## 不接（2026-10-05）
+
+Choose 是選股清單，不是交易。Trade 是帳，不做全市場選股。
+兩邊不接：不導入清單、不共用資料庫、不把選股結果寫進帳本、不做 10 日滾動表對接。
+規則可以各自保留，程式不通。
 
 ## 兩組（文件已留）
 
@@ -24,6 +30,7 @@ B APP四關進＋林昇出
   - `app_four_gate`
 - 純 Python，不需 numpy；Termux 不裝 ruff
 - 排程：平日 15:30 Asia/Taipei（Choose 原設定）
+- Choose 不下單、不算損益。停損與1.5R 只是清單附帶數字。
 
 Termux 安裝（2026-09-27）：
 - `gh auth login`（瀏覽器 device code）後 `gh repo clone wang123890-alt/Choose`
@@ -31,5 +38,3 @@ Termux 安裝（2026-09-27）：
 - `python run.py`；手機內建瀏覽器開 `http://127.0.0.1:8000`
 - 不要在 Grok App 開 localhost；家目錄的 `run.py` 是別專案
 - 技術面需約 60 個全市場交易日才算得出兩組
-
-10 日滾動表、連日標記尚未接上 Choose 匠表板。
