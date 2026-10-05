@@ -10,7 +10,7 @@
 // silently serve an earlier test's cached result (see twseDailyKLine.test.js
 // for the same footgun already hit once).
 import assert from 'node:assert/strict';
-import { loadKLineFast } from '../js/data/loadKLine.js';
+import { loadKLineFast, CACHE_TTL_MS } from '../js/data/loadKLine.js';
 
 let passed = 0;
 let failed = 0;
@@ -120,6 +120,35 @@ await testAsync('loadKLineFast caches by stockId: a second call for the same sto
   const second = await loadKLineFast('2330d');
   assert.equal(fetchCount, countAfterFirst, 'second call for the same stockId should be served from cache, not refetch');
   assert.deepEqual(second, first);
+});
+
+await testAsync('loadKLineFast refetches once the cache entry is older than CACHE_TTL_MS (2026-10-05: price updated but the chart stayed stale — this cache having no expiry at all was the root cause)', async () => {
+  let fetchCount = 0;
+  globalThis.fetch = async (url) => {
+    fetchCount++;
+    if (url.includes('.TW?') || url.includes('.TWO?') || url.includes('r.jina.ai') || url.includes('allorigins')) {
+      return yahooChartResponse([{ date: '2026-09-01', open: 1, high: 1, low: 1, close: 1, volume: 100 }]);
+    }
+    if (url.includes('getStockInfo.jsp')) return emptyMis;
+    return { ok: false };
+  };
+  const realNow = Date.now;
+  try {
+    Date.now = () => 1_000_000_000_000;
+    await loadKLineFast('2330e');
+    const countAfterFirst = fetchCount;
+    assert.ok(countAfterFirst > 0, 'first call should hit fetch');
+
+    Date.now = () => 1_000_000_000_000 + CACHE_TTL_MS - 1;
+    await loadKLineFast('2330e');
+    assert.equal(fetchCount, countAfterFirst, 'still within TTL — should be served from cache');
+
+    Date.now = () => 1_000_000_000_000 + CACHE_TTL_MS + 1;
+    await loadKLineFast('2330e');
+    assert.ok(fetchCount > countAfterFirst, 'past TTL — should refetch, not keep serving the stale entry forever');
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
