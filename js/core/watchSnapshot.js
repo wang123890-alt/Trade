@@ -55,6 +55,10 @@ function computeWatchSnapshot(bars) {
 
 function sortWatchRows(rows, key) {
   const copy = [...rows];
+  if (key === 'addedAt') {
+    copy.sort((a, b) => String(b.w?.addedAt || '').localeCompare(String(a.w?.addedAt || '')));
+    return copy;
+  }
   const num = (r) => {
     const s = r.snap;
     if (!s) return -Infinity;

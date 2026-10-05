@@ -2,6 +2,7 @@ import { getAllWatchItems, addWatchItem, removeWatchItem } from './watchlist.js'
 import { navigate } from '../router.js';
 import { escapeHtml, pnlClass } from '../utils/format.js';
 import { loadKLineFast } from '../data/loadKLine.js';
+import { lookupById, lookupByName } from '../data/stockLookup.js';
 import { computeWatchSnapshot, sortWatchRows } from '../core/watchSnapshot.js';
 
 function fmtPct(v) {
@@ -16,6 +17,11 @@ function fmtNum(v, digits = 2) {
   return `${sign}${v.toFixed(digits)}`;
 }
 
+function shortDate(iso) {
+  if (!iso) return '';
+  return String(iso).slice(0, 10);
+}
+
 function renderWatchlistView(container) {
   container.innerHTML = `
     <div style="font-size:20px; font-weight:700; margin-bottom:16px;">觀察名單</div>
@@ -25,11 +31,11 @@ function renderWatchlistView(container) {
       <div class="form-row">
         <div class="form-field">
           <label>標的代號</label>
-          <input type="text" id="watch-stock-id" placeholder="2330">
+          <input type="text" id="watch-stock-id" name="stockId" placeholder="2330" inputmode="numeric" autocomplete="off">
         </div>
         <div class="form-field">
           <label>標的名稱</label>
-          <input type="text" id="watch-stock-name" placeholder="台積電">
+          <input type="text" id="watch-stock-name" name="stockName" placeholder="台積電" autocomplete="off">
         </div>
       </div>
       <button class="btn btn-primary btn-block" id="watch-add-btn">加入觀察</button>
@@ -38,21 +44,71 @@ function renderWatchlistView(container) {
     <div id="watch-list"></div>
   `;
 
+  const idInput = container.querySelector('#watch-stock-id');
+  const nameInput = container.querySelector('#watch-stock-name');
+  let lock = false;
+  let idTimer = 0;
+  let nameTimer = 0;
+
+  async function fillFromId() {
+    const id = idInput.value.trim();
+    if (lock || !id) return null;
+    const hit = await lookupById(id);
+    if (!hit) return null;
+    lock = true;
+    idInput.value = hit.stockId;
+    nameInput.value = hit.stockName;
+    lock = false;
+    return hit;
+  }
+
+  function fillFromName() {
+    const name = nameInput.value.trim();
+    if (lock || !name) return null;
+    const hit = lookupByName(name);
+    if (!hit) return null;
+    lock = true;
+    idInput.value = hit.stockId;
+    nameInput.value = hit.stockName;
+    lock = false;
+    return hit;
+  }
+
+  idInput.addEventListener('input', () => {
+    clearTimeout(idTimer);
+    if (idInput.value.trim().length >= 4) idTimer = setTimeout(fillFromId, 180);
+  });
+  idInput.addEventListener('blur', fillFromId);
+  nameInput.addEventListener('input', () => {
+    clearTimeout(nameTimer);
+    if (!idInput.value.trim() && nameInput.value.trim().length >= 2) nameTimer = setTimeout(fillFromName, 180);
+  });
+  nameInput.addEventListener('blur', () => {
+    if (!idInput.value.trim()) fillFromName();
+  });
+
   container.querySelector('#watch-add-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    const stockId = container.querySelector('#watch-stock-id').value.trim();
-    const stockName = container.querySelector('#watch-stock-name').value.trim();
+    const errorBox = container.querySelector('#watch-form-errors');
     btn.disabled = true;
+    if (idInput.value.trim() && !nameInput.value.trim()) await fillFromId();
+    else if (!idInput.value.trim() && nameInput.value.trim()) fillFromName();
+    const stockId = idInput.value.trim();
+    const stockName = nameInput.value.trim();
+    if (!stockId || !stockName) {
+      btn.disabled = false;
+      errorBox.innerHTML = '<div class="error-banner">代號或名稱填一個，另一個要能自動對到</div>';
+      return;
+    }
     const { errors } = await addWatchItem({ stockId, stockName, source: 'manual' });
     btn.disabled = false;
-    const errorBox = container.querySelector('#watch-form-errors');
     if (errors.length > 0) {
       errorBox.innerHTML = `<div class="error-banner">${errors.join('；')}</div>`;
       return;
     }
     errorBox.innerHTML = '';
-    container.querySelector('#watch-stock-id').value = '';
-    container.querySelector('#watch-stock-name').value = '';
+    idInput.value = '';
+    nameInput.value = '';
     renderList(container);
   });
 
@@ -60,6 +116,7 @@ function renderWatchlistView(container) {
 }
 
 const SORT_KEYS = [
+  { key: 'addedAt', label: '加入日' },
   { key: 'dayChange', label: '價格漲跌' },
   { key: 'dayPct', label: '單日漲跌幅' },
   { key: 'fivePct', label: '5日漲跌幅' },
@@ -84,6 +141,7 @@ function rowHtml(w, snap, loading) {
       ? `直線K 高 ${snap.rangeHigh} / 低 ${snap.rangeLow}`
       : `最新K 高 ${snap.rangeHigh} / 低 ${snap.rangeLow}`
     : '';
+  const added = shortDate(w.addedAt);
   return `
     <div class="card" data-watch-id="${escapeHtml(w.id)}" style="border-style:dashed;">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
@@ -91,6 +149,7 @@ function rowHtml(w, snap, loading) {
           <div style="font-size:14.5px; font-weight:700; text-decoration:underline; text-decoration-color:var(--border);">
             ${escapeHtml(w.stockName)} <span class="text-faint" style="font-weight:500; font-size:12px;">${escapeHtml(w.stockId)}</span>
           </div>
+          <div class="text-faint" style="font-size:11px; margin-top:2px;">加入 ${escapeHtml(added || '—')}${snap?.date ? ` · 行情 ${escapeHtml(String(snap.date).slice(0, 10))}` : ''}</div>
           <div style="margin-top:6px; font-size:13px; font-weight:700; white-space:nowrap;">
             ${snap ? snap.price : '—'}
             <span class="${dayCls}" style="font-weight:600; font-size:12px; margin-left:6px;">${snap ? fmtNum(snap.dayChange) : ''} ${snap ? fmtPct(snap.dayPct) : ''} · 5日 ${snap ? fmtPct(snap.fivePct) : '—'}</span>
@@ -117,7 +176,7 @@ async function renderList(container) {
   }
 
   const rows = items.map((w) => ({ w, snap: null, loading: true }));
-  let sortKey = container._watchSortKey || 'dayPct';
+  let sortKey = container._watchSortKey || 'addedAt';
 
   function paint() {
     sortEl.innerHTML = SORT_KEYS.map(
