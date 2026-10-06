@@ -2296,6 +2296,16 @@
       "soldAt": null,
       "addedAt": "2026-10-04T16:18:03.154Z",
       "notes": []
+    },
+    {
+      "id": "watch_muw95j4t_z7mhgu",
+      "stockId": "3293",
+      "stockName": "鈊象",
+      "source": "sold",
+      "soldPrice": 777,
+      "soldAt": "2026-10-06",
+      "addedAt": "2026-10-06T05:42:52.445Z",
+      "notes": []
     }
   ],
   "manualPrices": {
