@@ -27,10 +27,10 @@ function bindStockLookup(form) {
     lock = false;
   }
 
-  function fromName() {
+  async function fromName() {
     const name = nameInput.value.trim();
     if (lock || !name || idInput.value.trim()) return;
-    const hit = lookupByName(name);
+    const hit = await lookupByName(name);
     if (!hit) return;
     lock = true;
     idInput.value = hit.stockId;
@@ -52,11 +52,12 @@ function bindStockLookup(form) {
   });
   nameInput.addEventListener('blur', fromName);
   nameInput.addEventListener('change', fromName);
+  nameInput.addEventListener('compositionend', fromName);
 
   form.addEventListener('submit', async (e) => {
     if (idInput.value.trim() && nameInput.value.trim()) return;
     if (idInput.value.trim()) await fromId();
-    else fromName();
+    else await fromName();
     if (!idInput.value.trim() || !nameInput.value.trim()) {
       e.preventDefault();
       e.stopImmediatePropagation();
