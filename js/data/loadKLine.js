@@ -1,62 +1,82 @@
 import { FinMindProvider, YahooFinanceProvider } from './marketdata.js';
 import { getTodayBar } from './twseDailyKLine.js';
 
-// 2026-10-05: 使用者回報「盤中價格有更新、K線沒更新」——根因是這份
-// memory cache原本完全沒有過期時間，同一檔股票一旦在這個session抓過一
-// 次，之後不管隔多久重新進個股詳細頁都是吃同一份快取（hash router的SPA
-// 導航不會重新載入模組，`mem`活在整個session），跟持股頁即時報價
-// （getLiveQuote，完全沒有快取）是兩條完全獨立的路徑，所以才會看到
-// 「價格新、K線舊」這種分裂的狀態。CACHE_TTL_MS讓快取會過期：盤中短時
-// 間內重複切換個股頁還是吃快取（不會每次都重打），但超過這個時間再回
-// 來就會真的重抓一次，merge進當日MIS這根未收盤的K棒。
-const CACHE_TTL_MS = 60 * 1000;
+const FRESH_MS = 60 * 1000;
+const DISK_KEY = 'trade_app.kline_fast.v1';
 
 const mem = {};
 const inflight = {};
 
 function mergeToday(bars, today) {
-  if (!today) return bars;
-  const byDate = new Map(bars.map((b) => [b.date, b]));
+  if (!today) return bars || [];
+  const byDate = new Map((bars || []).map((b) => [b.date, b]));
   const existing = byDate.get(today.date);
   if (!existing || existing.close !== today.close) byDate.set(today.date, today);
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-async function historyOnce(stockId) {
+function readDisk(id) {
   try {
-    const bars = await YahooFinanceProvider.getKLine(stockId);
-    if (bars?.length) return { bars, source: '雅虎股市' };
-  } catch { /* next */ }
-  const bars = await FinMindProvider.getKLine(stockId);
-  if (!bars?.length) throw new Error('empty');
-  return { bars, source: 'FinMind' };
+    const all = JSON.parse(localStorage.getItem(DISK_KEY) || '{}');
+    const hit = all[id];
+    if (!hit?.bars?.length) return null;
+    return hit;
+  } catch {
+    return null;
+  }
+}
+
+function writeDisk(id, hit) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DISK_KEY) || '{}');
+    all[id] = { bars: hit.bars, source: hit.source, cachedAt: hit.cachedAt };
+    const keys = Object.keys(all);
+    if (keys.length > 30) {
+      keys.sort((a, b) => (all[a].cachedAt || 0) - (all[b].cachedAt || 0));
+      for (const k of keys.slice(0, keys.length - 30)) delete all[k];
+    }
+    localStorage.setItem(DISK_KEY, JSON.stringify(all));
+  } catch { /* quota */ }
+}
+
+async function fetchFresh(id) {
+  const histP = Promise.any([
+    YahooFinanceProvider.getKLine(id).then((bars) => {
+      if (!bars?.length) throw new Error('empty');
+      return { bars, source: '雅虎股市' };
+    }),
+    FinMindProvider.getKLine(id).then((bars) => {
+      if (!bars?.length) throw new Error('empty');
+      return { bars, source: 'FinMind' };
+    }),
+  ]).catch(() => null);
+  const todayP = getTodayBar(id).catch(() => null);
+  const [hist, today] = await Promise.all([histP, todayP]);
+  const bars = mergeToday(hist?.bars, today);
+  if (!bars.length) throw new Error('empty');
+  const source = today ? `${hist?.source || '證交所今日'} · 證交所今日` : (hist?.source || '');
+  const hit = { bars, source, cachedAt: Date.now() };
+  mem[id] = hit;
+  writeDisk(id, hit);
+  return hit;
+}
+
+function startFresh(id) {
+  if (inflight[id]) return inflight[id];
+  inflight[id] = fetchFresh(id).finally(() => { delete inflight[id]; });
+  return inflight[id];
 }
 
 async function loadKLineFast(stockId) {
   const id = String(stockId || '').trim();
   if (!id) return { bars: [], source: '' };
-  const cached = mem[id];
-  if (cached?.bars?.length && Date.now() - cached.cachedAt < CACHE_TTL_MS) return cached;
-  if (inflight[id]) return inflight[id];
-
-  inflight[id] = (async () => {
-    try {
-      const hist = await historyOnce(id);
-      let today = null;
-      try {
-        today = await getTodayBar(id);
-      } catch { /* history is enough */ }
-      const bars = mergeToday(hist.bars, today);
-      const source = today ? `${hist.source} · 證交所今日` : hist.source;
-      const hit = { bars, source, cachedAt: Date.now() };
-      mem[id] = hit;
-      return hit;
-    } finally {
-      delete inflight[id];
-    }
-  })();
-
-  return inflight[id];
+  const cached = mem[id] || readDisk(id);
+  if (cached?.bars?.length) {
+    mem[id] = cached;
+    const stale = Date.now() - (cached.cachedAt || 0) >= FRESH_MS;
+    return stale ? { ...cached, refresh: startFresh(id) } : cached;
+  }
+  return startFresh(id);
 }
 
-export { loadKLineFast, CACHE_TTL_MS };
+export { loadKLineFast, FRESH_MS as CACHE_TTL_MS };
