@@ -1,3 +1,102 @@
+import { recompute } from './transactions.js';
+import { StockNotesRepository } from '../data/storage.js';
+import { CsvProvider, MarketDataError } from '../data/marketdata.js';
+import { getInstitutionalHistory } from '../data/institutionalData.js';
+import { loadKLineFast } from '../data/loadKLine.js';
+import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
+import { renderKLineChart } from '../core/chart.js';
+import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
+import { getRiskSettings } from '../data/riskSettings.js';
+import { attachLossReviews, computeBuyFacts } from './review.js';
+import { groupByStrategy } from '../core/statistics.js';
+import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
+
+const RSI_OVERBOUGHT = 70;
+const RSI_OVERSOLD = 30;
+
+function maArrow(series, i) {
+  const cur = series[i];
+  const prev = i > 0 ? series[i - 1] : null;
+  if (cur == null || prev == null) return '';
+  if (cur > prev) return '<span class="text-red">↑</span>';
+  if (cur < prev) return '<span class="text-green">↓</span>';
+  return '<span class="text-faint">→</span>';
+}
+
+async function renderStockDetailView(container, stockId) {
+  if (!stockId) {
+    container.innerHTML = '<div class="empty-state">未指定標的</div>';
+    return;
+  }
+  const { transactions, matches } = recompute();
+  const stockTx = transactions.filter((t) => t.stockId === stockId);
+  const lastTx = stockTx.length > 0 ? stockTx[stockTx.length - 1] : null;
+  const stockName = lastTx ? lastTx.stockName : stockId;
+  container.innerHTML = `
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+      <button class="icon-btn" id="back-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      </button>
+      <div style="font-size:19px; font-weight:700;">${escapeHtml(stockName)} <span class="text-faint" style="font-weight:500; font-size:13px;">${escapeHtml(stockId)}</span></div>
+    </div>
+    ${lastTx ? `<div class="text-faint" style="font-size:12px; margin:0 0 12px 42px;">最後交易日 ${formatDate(lastTx.dateTime)} · 成交價 ${lastTx.price}</div>` : ''}
+    <div id="chart-area" class="card"><div class="empty-state">載入K線資料中…</div></div>
+    <div id="institutional-area"></div>
+    <div id="notes-area"></div>
+    <div id="review-area"></div>
+  `;
+  container.querySelector('#back-btn').addEventListener('click', () => window.history.back());
+  loadAndRenderChart(container, stockId, stockTx);
+  renderInstitutional(container, stockId);
+  renderNotes(container, stockId);
+  renderStockLossReview(container, stockId, matches, transactions);
+}
+
+function fmtNet(n) {
+  if (n == null) return '<span class="text-faint">—</span>';
+  const shares = Math.round(n / 1000);
+  const cls = n > 0 ? 'text-red' : n < 0 ? 'text-green' : '';
+  const sign = n > 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${shares.toLocaleString('zh-TW')}</span>`;
+}
+
+async function renderInstitutional(container, stockId) {
+  const area = container.querySelector('#institutional-area');
+  if (!area) return;
+  const history = await getInstitutionalHistory(stockId);
+  if (!area.isConnected || history.length === 0) {
+    area.innerHTML = '';
+    return;
+  }
+  const rows = [...history].reverse();
+  area.innerHTML = `
+    <div class="card" style="margin-top:12px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">三大法人買賣超（近${rows.length}個交易日 · 單位：張）</div>
+      <table style="width:100%; font-size:12px; border-collapse:collapse;">
+        <thead>
+          <tr class="text-faint" style="text-align:right;">
+            <th style="text-align:left; font-weight:500; padding-bottom:4px;">日期</th>
+            <th style="font-weight:500; padding-bottom:4px;">外資</th>
+            <th style="font-weight:500; padding-bottom:4px;">投信</th>
+            <th style="font-weight:500; padding-bottom:4px;">自營商</th>
+            <th style="font-weight:500; padding-bottom:4px;">合計</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => `
+            <tr style="text-align:right;">
+              <td style="text-align:left; padding:3px 0;">${escapeHtml(r.date.slice(5))}</td>
+              <td style="padding:3px 0;">${fmtNet(r.foreign_net)}</td>
+              <td style="padding:3px 0;">${fmtNet(r.trust_net)}</td>
+              <td style="padding:3px 0;">${fmtNet(r.dealer_net)}</td>
+              <td style="padding:3px 0; font-weight:600;">${fmtNet(r.inst_total_net)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="text-faint" style="font-size:11px; margin-top:6px;">資料來源：台股資料API／證交所公開資訊，每日收盤後排程更新，非即時</div>
+    </div>`;
+}
+
 async function loadAndRenderChart(container, stockId, stockTx) {
   const chartArea = container.querySelector('#chart-area');
   try {
@@ -19,3 +118,221 @@ async function loadAndRenderChart(container, stockId, stockTx) {
     renderCsvFallback(chartArea, stockId, err);
   }
 }
+
+function renderCsvFallback(chartArea, stockId, err) {
+  const reason = err instanceof MarketDataError ? err.message : '未知錯誤';
+  chartArea.innerHTML = `
+    <div class="error-banner">K線資料來源目前無法取得（${reason}），可以手動貼上CSV資料</div>
+    <div class="form-field">
+      <label>貼上CSV（欄位：date,open,high,low,close,volume）</label>
+      <textarea id="csv-input" placeholder="date,open,high,low,close,volume&#10;2026-01-01,100,105,99,103,1000000"></textarea>
+    </div>
+    <button class="btn btn-primary" id="csv-submit">解析並顯示</button>
+  `;
+  chartArea.querySelector('#csv-submit').addEventListener('click', () => {
+    const csvText = chartArea.querySelector('#csv-input').value;
+    try {
+      const bars = CsvProvider.parse(csvText);
+      renderChartFromBars(chartArea, bars, [], { source: '手動貼上', fetchedAt: new Date().toISOString() });
+    } catch (parseErr) {
+      const banner = document.createElement('div');
+      banner.className = 'error-banner';
+      banner.textContent = parseErr.message;
+      chartArea.prepend(banner);
+    }
+  });
+}
+
+function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
+  const ma5 = computeMA(bars, 5);
+  const ma10 = computeMA(bars, 10);
+  const ma20 = computeMA(bars, 20);
+  const ma60 = computeMA(bars, 60);
+  const rsi = computeRSI(bars, 14);
+  const macd = computeMACD(bars);
+  const dmi = computeDMI(bars);
+  const atr = computeATR(bars, 14);
+  const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx, ...getRiskSettings() });
+  const chartLevels = levelsForChart(tradeLevels);
+  const lastIndex = bars.length - 1;
+  const cross = detectMACross(ma5, ma20, lastIndex);
+  const macdCross = detectMACross(macd.macdLine, macd.signalLine, lastIndex);
+  const dmiCross = detectMACross(dmi.plusDI, dmi.minusDI, lastIndex);
+  const lastRSI = rsi[lastIndex];
+  const lastADX = dmi.adx[lastIndex];
+  const markers = stockTx.map((tx) => {
+    const idx = bars.findIndex((b) => b.date === tx.dateTime.slice(0, 10));
+    if (idx === -1) return null;
+    return { index: idx, label: `${tx.price}`, color: tx.type === 'BUY' ? 'var(--red)' : 'var(--green)' };
+  }).filter(Boolean);
+  const signalLines = [];
+  if (cross === 'golden') signalLines.push('MA5 / MA20 出現黃金交叉，短均線轉強');
+  if (cross === 'death') signalLines.push('MA5 / MA20 出現死亡交叉，短均線轉弱');
+  if (lastRSI != null && lastRSI >= RSI_OVERBOUGHT) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超買區間，留意過熱風險`);
+  if (lastRSI != null && lastRSI <= RSI_OVERSOLD) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超賣區間`);
+  if (macdCross === 'golden') signalLines.push('MACD 出現黃金交叉（DIF上穿DEA），動能轉強');
+  if (macdCross === 'death') signalLines.push('MACD 出現死亡交叉（DIF下穿DEA），動能轉弱');
+  if (dmiCross === 'golden') signalLines.push('DMI：+DI上穿-DI，趨勢轉多');
+  if (dmiCross === 'death') signalLines.push('DMI：+DI下穿-DI，趨勢轉空');
+  if (lastADX != null && lastADX >= 25) signalLines.push(`ADX 為 ${lastADX.toFixed(0)}，目前趨勢力道${lastADX >= 40 ? '很強' : '偏強'}`);
+  let selectedIndex = null;
+  function buildChartSvg() {
+    return renderKLineChart(bars, {
+      maSeries: [
+        { label: 'MA5', color: 'var(--accent)', values: ma5 },
+        { label: 'MA10', color: '#fbbf24', values: ma10 },
+        { label: 'MA20', color: '#f0abfc', values: ma20 },
+        { label: 'MA60', color: 'var(--text-faint)', values: ma60 },
+      ],
+      markers, rsi, macd, dmi, selectedIndex, levels: chartLevels,
+    });
+  }
+  chartArea.innerHTML = `
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:nowrap; overflow-x:auto;">
+      <div style="display:flex; gap:8px; flex-wrap:nowrap;">
+        <span class="tag tag-accent">MA5 ${maArrow(ma5, lastIndex)}</span>
+        <span class="tag" style="color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.25);">MA10 ${maArrow(ma10, lastIndex)}</span>
+        <span class="tag" style="color:#f0abfc; background:rgba(240,171,252,0.1); border:1px solid rgba(240,171,252,0.25);">MA20 ${maArrow(ma20, lastIndex)}</span>
+        <span class="tag" style="color:var(--text-faint); background:var(--panel-2); border:1px solid var(--border);">MA60 ${maArrow(ma60, lastIndex)}</span>
+      </div>
+    </div>
+    <div style="margin-bottom:10px; font-size:11px; color:var(--text-faint);">
+      ${meta.fetchedAt ? `${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新` : ''}
+    </div>
+    <div id="kline-svg-wrap">${buildChartSvg()}</div>
+    ${renderTradeLevels(tradeLevels)}
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">訊號說明</div>
+      ${signalLines.length > 0
+        ? signalLines.map((l) => `<div style="font-size:12.5px; margin-bottom:4px;">・${l}</div>`).join('')
+        : '<div class="text-faint" style="font-size:12.5px;">目前沒有明顯的均線交叉或RSI極端訊號</div>'}
+    </div>
+  `;
+  const svgWrap = chartArea.querySelector('#kline-svg-wrap');
+  svgWrap.addEventListener('click', (e) => {
+    const hit = e.target.closest('[data-index]');
+    if (!hit) return;
+    const idx = Number(hit.getAttribute('data-index'));
+    selectedIndex = selectedIndex === idx ? null : idx;
+    svgWrap.innerHTML = buildChartSvg();
+  });
+}
+
+function renderTradeLevels(levels) {
+  if (!levels) {
+    return `
+      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">參考價位</div>
+        <div class="text-faint" style="font-size:12.5px;">K線資料不足30根，無法推算支撐壓力</div>
+      </div>`;
+  }
+  const row = (label, value, basis, valueClass = '') => `
+    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:5px 0; border-bottom:1px solid var(--border);">
+      <div style="font-size:12.5px; min-width:64px;">${escapeHtml(label)}</div>
+      <div style="flex:1; text-align:right;">
+        <div class="${valueClass}" style="font-size:13px; font-weight:700;">${escapeHtml(value)}</div>
+        ${basis ? `<div class="text-faint" style="font-size:10.5px; margin-top:1px;">${escapeHtml(basis)}</div>` : ''}
+      </div>
+    </div>`;
+  const rows = [
+    row('目前狀態', `${levels.price}`, `${levels.trendLabel}${levels.adx != null ? ` · ADX ${levels.adx}` : ''}${levels.atr != null ? ` · ATR ${levels.atr}` : ''}`),
+    levels.resistance ? row('最近壓力', `${levels.resistance.price}`, `前波高點 ${levels.resistance.date.slice(5).replace('-', '/')}`) : '',
+    levels.support ? row('最近支撐', `${levels.support.price}`, `前波低點 ${levels.support.date.slice(5).replace('-', '/')}`) : '',
+    levels.entry
+      ? row('參考進場區', `${levels.entry.low} ~ ${levels.entry.high}`, levels.entry.basis)
+      : row('參考進場區', '—', (levels.entrySkip && levels.entrySkip.length) ? levels.entrySkip.join('；') : (levels.trend === 'down' ? '空頭排列，此處不推算進場區' : '條件未齊')),
+    levels.exit
+      ? row('參考出場', levels.exit.signal ? '條件成立' : '尚未成立', levels.exit.basis, levels.exit.signal ? 'text-green' : '')
+      : '',
+    row('參考停損', levels.stop.price != null ? `${levels.stop.price}` : '—', levels.stop.basis, 'text-green'),
+    levels.structureTarget
+      ? row('結構目標', `${levels.structureTarget.price}`, levels.structureTarget.basis, 'text-red')
+      : row('結構目標', '—', '現價上方沒有已確認的前波高點'),
+    levels.target ? row('2R參考', `${levels.target.price}`, levels.target.basis, 'text-red') : '',
+    levels.riskReward != null
+      ? row('風險報酬比', `1 : ${levels.riskReward}`, levels.riskReward >= 2 ? '2R資金線' : '低於 1:2')
+      : '',
+    levels.size
+      ? row('可買股數', levels.size.lots > 0 ? `${levels.size.lots}張（${levels.size.shares}股）` : `${levels.size.shares}股（不滿1張）`, `波段本金 ${levels.size.capital} × ${levels.size.riskPct}% ＝ ${levels.size.budget}；每股風險 ${levels.size.perShare}`)
+      : row('可買股數', '—', levels.stop.price == null ? '沒有停損價，無法反推' : '到資料設定填波段本金'),
+  ].join('');
+  return `
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">參考價位</div>
+      <div class="text-faint" style="font-size:10.5px; margin-bottom:6px;">
+        由K線與指標推算的價位，每一項都附上依據；這是計算結果，不是進出場建議
+      </div>
+      ${rows}
+    </div>`;
+}
+
+function renderNotes(container, stockId) {
+  const area = container.querySelector('#notes-area');
+  area.innerHTML = `
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <div style="font-size:15px; font-weight:700;">看法紀錄</div>
+      </div>
+      <div class="form-field">
+        <textarea id="note-input" placeholder="記錄目前的想法…"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="note-submit">新增筆記</button>
+      <div id="notes-list" style="margin-top:14px;"></div>
+    </div>
+  `;
+  function renderList() {
+    const list = area.querySelector('#notes-list');
+    const current = StockNotesRepository.getAll(stockId);
+    if (current.length === 0) {
+      list.innerHTML = '<div class="empty-state">還沒有筆記</div>';
+      return;
+    }
+    list.innerHTML = [...current].reverse().map((n) => `
+      <div style="border-left:2px solid var(--border); padding-left:12px; margin-bottom:12px;">
+        <div class="text-faint" style="font-size:11px; margin-bottom:4px;">${formatDate(n.time)}</div>
+        <div style="font-size:12.5px; line-height:1.6;">${escapeHtml(n.text)}</div>
+      </div>`).join('');
+  }
+  area.querySelector('#note-submit').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const input = area.querySelector('#note-input');
+    const text = input.value.trim();
+    if (!text) return;
+    btn.disabled = true;
+    await StockNotesRepository.add(stockId, text);
+    btn.disabled = false;
+    input.value = '';
+    renderList();
+  });
+  renderList();
+}
+
+function renderStockLossReview(container, stockId, matches, transactions) {
+  const area = container.querySelector('#review-area');
+  const stockMatches = matches.filter((m) => m.stockId === stockId);
+  const losses = stockMatches.filter((m) => m.realizedPnL < 0);
+  if (losses.length === 0) { area.innerHTML = ''; return; }
+  const transactionsById = Object.fromEntries(transactions.map((t) => [t.id, t]));
+  const strategySummariesByName = Object.fromEntries(groupByStrategy(matches, transactionsById).map((s) => [s.strategy, s]));
+  const buyFacts = computeBuyFacts(transactions, matches);
+  const reviewed = attachLossReviews(losses, transactionsById, strategySummariesByName, { buyFacts });
+  area.innerHTML = `
+    <div class="card">
+      <div style="font-size:15px; font-weight:700; margin-bottom:10px;">虧損覆盤</div>
+      ${reviewed.map((m) => `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="text-faint" style="font-size:11.5px;">${formatDate(m.closedAt)} · ${m.buyPrice} → ${m.sellPrice}</div>
+            <div class="${pnlClass(m.realizedPnL)}" style="font-size:13px; font-weight:600;">${formatMoney(m.realizedPnL)}</div>
+          </div>
+          <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+            ${m.review.triggers.map((t) => `<span class="tag tag-yellow">${escapeHtml(t)}</span>`).join('')}
+          </div>
+          <div style="margin-top:6px; font-size:12px; color:var(--text-dim); line-height:1.6;">
+            ${m.review.suggestions.map((s) => `・${escapeHtml(s)}`).join('<br>')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+export { renderStockDetailView };
