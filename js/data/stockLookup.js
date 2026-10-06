@@ -1,13 +1,14 @@
 import { TransactionRepository, WatchlistRepository } from './storage.js';
+import { STOCK_DIR } from './stockDirectory.js';
 
 const DIRECT_TIMEOUT_MS = 2500;
 const PROXY_TIMEOUT_MS = 6000;
 const MIS = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
 const CACHE_KEY = 'trade_app.stock_lookup.v1';
-const DIR_KEY = 'trade_app.stock_dir.v1';
-const DIR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const TWSE_LIST = 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L';
-const TPEX_LIST = 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O';
+
+function norm(s) {
+  return String(s || '').replace(/\s/g, '').trim();
+}
 
 function localPairs() {
   const byId = {};
@@ -17,19 +18,14 @@ function localPairs() {
     const i = String(id).trim();
     const n = String(name).trim();
     byId[i] = n;
-    byName[n] = i;
+    if (!byName[n]) byName[n] = i;
   };
+  for (const [i, n] of Object.entries(STOCK_DIR)) add(i, n);
   for (const t of TransactionRepository.getAll()) add(t.stockId, t.stockName);
   for (const w of WatchlistRepository.getAll()) add(w.stockId, w.stockName);
   try {
     const extra = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
     for (const [i, n] of Object.entries(extra)) add(i, n);
-  } catch { /* ignore */ }
-  try {
-    const dir = JSON.parse(localStorage.getItem(DIR_KEY) || 'null');
-    if (dir?.byId) {
-      for (const [i, n] of Object.entries(dir.byId)) add(i, n);
-    }
   } catch { /* ignore */ }
   return { byId, byName };
 }
@@ -43,10 +39,12 @@ function remember(id, name) {
   } catch { /* ignore */ }
 }
 
-function matchName(name, byName) {
+function matchName(raw, byName) {
+  const name = norm(raw);
+  if (!name) return null;
   if (byName[name]) return { stockId: byName[name], stockName: name };
-  const hit = Object.entries(byName).find(([n]) => n.includes(name) || name.includes(n));
-  if (hit) return { stockId: hit[1], stockName: hit[0] };
+  const hits = Object.entries(byName).filter(([n]) => norm(n).includes(name));
+  if (hits.length === 1) return { stockId: hits[0][1], stockName: hits[0][0] };
   return null;
 }
 
@@ -58,35 +56,6 @@ async function fetchWithTimeout(url, timeoutMs) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function loadDirectory() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(DIR_KEY) || 'null');
-    if (cached?.savedAt && Date.now() - cached.savedAt < DIR_TTL_MS && cached.byId) return cached.byId;
-  } catch { /* refetch */ }
-  const byId = {};
-  const pull = async (url, idKey, nameKey) => {
-    try {
-      const res = await fetchWithTimeout(url, 8000);
-      if (!res.ok) return;
-      const rows = await res.json();
-      if (!Array.isArray(rows)) return;
-      for (const row of rows) {
-        const id = String(row[idKey] || '').trim();
-        const name = String(row[nameKey] || row['公司簡稱'] || '').trim();
-        if (id && name) byId[id] = name;
-      }
-    } catch { /* next source */ }
-  };
-  await pull(TWSE_LIST, '公司代號', '公司簡稱');
-  await pull(TPEX_LIST, '公司代號', '公司簡稱');
-  if (Object.keys(byId).length > 0) {
-    try {
-      localStorage.setItem(DIR_KEY, JSON.stringify({ savedAt: Date.now(), byId }));
-    } catch { /* quota */ }
-  }
-  return byId;
 }
 
 async function misName(stockId) {
@@ -124,12 +93,7 @@ async function lookupById(stockId) {
 async function lookupByName(stockName) {
   const name = String(stockName || '').trim();
   if (!name) return null;
-  const local = matchName(name, localPairs().byName);
-  if (local) return local;
-  const dir = await loadDirectory();
-  const byName = {};
-  for (const [id, n] of Object.entries(dir)) byName[n] = id;
-  const hit = matchName(name, byName);
+  const hit = matchName(name, localPairs().byName);
   if (hit) remember(hit.stockId, hit.stockName);
   return hit;
 }
