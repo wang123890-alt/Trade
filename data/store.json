@@ -1876,6 +1876,34 @@
       "ruleAutoNote": "未符合：未創20日新高、量能未達1×二十日均量",
       "createdAt": "2026-10-03T13:22:04.447Z",
       "updatedAt": "2026-10-03T13:22:04.447Z"
+    },
+    {
+      "id": "tx_muw95esf_cm75bf",
+      "stockId": "3293",
+      "stockName": "鈊象",
+      "type": "SELL",
+      "dateTime": "2026-10-06",
+      "price": 777,
+      "quantity": 50,
+      "fee": 55,
+      "tax": 117,
+      "strategy": "",
+      "reason": "破5ma，最低快10ma",
+      "note": "",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "no",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "ruleAuto": [
+        "ruleExitFlag"
+      ],
+      "ruleAutoNote": "尚未同時滿足「收盤<MA5 且 MA5<MA10」",
+      "createdAt": "2026-10-06T05:42:46.815Z",
+      "updatedAt": "2026-10-06T05:42:46.815Z"
     }
   ],
   "watchlist": [
