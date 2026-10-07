@@ -2,6 +2,7 @@ import { recompute } from './transactions.js';
 import { ManualPriceRepository, StockAiAnalysisRepository } from '../data/storage.js';
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
 import { loadInstitutionalData } from '../data/institutionalData.js';
+import { invalidateKLineCache } from '../data/loadKLine.js';
 import { classifyAiAnalysisText, appendAiAnalysis } from '../core/aiAnalysisImport.js';
 import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass, escapeHtml } from '../utils/format.js';
@@ -86,6 +87,12 @@ function render(container) {
     // since the page loaded. Never throws, so no need to await/catch it
     // alongside the actual price refresh below.
     loadInstitutionalData({ fresh: true });
+    // Same idea for K線: loadKLineFast()'s cache (js/data/loadKLine.js) is
+    // shared by every page that draws a chart for this stock — stock-detail,
+    // review, watchlist — so clearing it here means whichever of those the
+    // user opens next does a real fetch instead of serving a cached entry
+    // still inside the freshness window.
+    positions.forEach((p) => invalidateKLineCache(p.stockId));
     try {
       const quotes = await getLiveQuotes(positions.map((p) => p.stockId));
       const prices = {};
@@ -187,6 +194,7 @@ function render(container) {
       btn.disabled = true;
       btn.textContent = '取得中…';
       loadInstitutionalData({ fresh: true });
+      invalidateKLineCache(stockId);
       let price = null;
       let fetchError = null;
       try {

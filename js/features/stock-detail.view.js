@@ -54,12 +54,16 @@ async function renderStockDetailView(container, stockId) {
 
 function fmtNet(n) {
   if (n == null) return '<span class="text-faint">—</span>';
-  const shares = Math.round(n / 1000);
+  const shares = Math.round(n / 1000); // 股數換算成張，跟台股慣用單位一致
   const cls = n > 0 ? 'text-red' : n < 0 ? 'text-green' : '';
   const sign = n > 0 ? '+' : '';
   return `<span class="${cls}">${sign}${shares.toLocaleString('zh-TW')}</span>`;
 }
 
+// 三大法人買賣超是靜態檔（data/institutional.json，排程寫入，見
+// scripts/updateInstitutional.mjs），這裡純粹讀檔顯示，沒有該股資料時整塊
+// 不畫——可能是非持股/非觀察名單（排程本來就只抓這兩類）、該股是上櫃且
+// Drive那天剛好沒資料（官方T86備援只涵蓋上市），或還沒跑過排程。
 async function renderInstitutional(container, stockId) {
   const area = container.querySelector('#institutional-area');
   if (!area) return;
@@ -68,7 +72,7 @@ async function renderInstitutional(container, stockId) {
     area.innerHTML = '';
     return;
   }
-  const rows = [...history].reverse();
+  const rows = [...history].reverse(); // 最新的日期排最上面
   area.innerHTML = `
     <div class="card" style="margin-top:12px;">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">三大法人買賣超（近${rows.length}個交易日 · 單位：張）</div>
