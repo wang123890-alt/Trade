@@ -79,4 +79,28 @@ async function loadKLineFast(stockId) {
   return startFresh(id);
 }
 
-export { loadKLineFast, FRESH_MS as CACHE_TTL_MS };
+// 持股頁「更新」／「全部更新」按下去的當下，就該讓之後再打開的任何頁面
+// （個股詳細頁、覆盤頁、觀察名單——全部走同一個loadKLineFast）看到新
+// K線，不是乾等FRESH_MS過期才觸發背景重抓。只刪mem不夠：loadKLineFast
+// 在mem沒有時會退回讀disk cache，disk那份的cachedAt若還在FRESH_MS內，
+// 下一次呼叫一樣會判定「還新鮮」直接吃掉、完全不會觸發startFresh()，
+// 所以mem跟disk兩層都要清，下一次loadKLineFast()才會真的走全新fetch
+// （不是stale-while-revalidate那種先吐舊資料、背景才更新的路徑）。
+function invalidateKLineCache(stockId) {
+  if (stockId) {
+    delete mem[stockId];
+  } else {
+    for (const id of Object.keys(mem)) delete mem[id];
+  }
+  try {
+    const all = JSON.parse(localStorage.getItem(DISK_KEY) || '{}');
+    if (stockId) {
+      delete all[stockId];
+    } else {
+      for (const id of Object.keys(all)) delete all[id];
+    }
+    localStorage.setItem(DISK_KEY, JSON.stringify(all));
+  } catch { /* no localStorage (tests/SSR) or quota — mem is already cleared, good enough */ }
+}
+
+export { loadKLineFast, invalidateKLineCache, FRESH_MS as CACHE_TTL_MS };
