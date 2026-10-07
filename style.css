@@ -1,6 +1,4 @@
-/* Mobile-first. Base rules target the narrow/folded state (~≤600px, e.g.
-   Pixel Fold cover screen); the min-width query widens the layout for the
-   unfolded/tablet/desktop state — never the other way around. */
+/* Mobile-first. Base rules target the narrow/folded state. */
 
 :root {
   --bg: #0a0e14;
@@ -23,35 +21,34 @@
 * { box-sizing: border-box; }
 
 html, body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
+  margin: 0; padding: 0; background: var(--bg); color: var(--text);
   font-family: "IBM Plex Sans", "Noto Sans TC", system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  background-image:
+    linear-gradient(rgba(34,211,238,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,211,238,0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-attachment: fixed;
 }
 
 button { font-family: inherit; }
 a { color: var(--accent); }
-
 #app { display: flex; flex-direction: column; min-height: 100vh; }
-
 .topbar {
   display: flex; align-items: center; gap: 10px; padding: 14px 16px;
-  border-bottom: 1px solid var(--border); background: var(--panel);
-  position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--border); background: rgba(16,21,29,0.92);
+  position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px);
 }
-.topbar .logo-mark {
+.topbar .logo-mark, .logo-mark {
   width: 30px; height: 30px; border-radius: 8px;
   background: linear-gradient(135deg, #0ea5a0, #22d3ee); flex-shrink: 0;
 }
-.topbar .title { font-size: 15px; font-weight: 700; }
-
+.topbar .title { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
 main { flex: 1; padding: 16px; padding-bottom: calc(var(--nav-height) + 16px); }
-
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-height);
-  display: flex; background: var(--panel); border-top: 1px solid var(--border); z-index: 10;
+  display: flex; background: rgba(16,21,29,0.94); border-top: 1px solid var(--border); z-index: 10;
+  backdrop-filter: blur(10px);
 }
 .bottom-nav button {
   flex: 1; background: none; border: none; color: var(--text-faint); font-size: 11px;
@@ -60,7 +57,6 @@ main { flex: 1; padding: 16px; padding-bottom: calc(var(--nav-height) + 16px); }
 .bottom-nav button.active { color: var(--accent); }
 .bottom-nav svg { width: 20px; height: 20px; }
 .sidebar-nav { display: none; }
-
 @media (min-width: 640px) {
   #app { flex-direction: row; }
   .bottom-nav { display: none; }
@@ -80,13 +76,12 @@ main { flex: 1; padding: 16px; padding-bottom: calc(var(--nav-height) + 16px); }
   main { padding: 28px 34px; padding-bottom: 28px; max-width: 1200px; }
   .wide-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 }
-
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 0 0 1px rgba(34,211,238,0.04), 0 10px 30px rgba(0,0,0,0.18); }
 .card + .card { margin-top: 12px; }
 .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
 @media (min-width: 640px) { .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.kpi-label { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
-.kpi-value { font-size: 18px; font-weight: 700; }
+.kpi-label { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.04em; }
+.kpi-value, .verdict-score { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
 .text-green { color: var(--green); }
 .text-red { color: var(--red); }
 .text-yellow { color: var(--yellow); }
@@ -125,27 +120,25 @@ main { flex: 1; padding: 16px; padding-bottom: calc(var(--nav-height) + 16px); }
   background: none; border: none; color: var(--text-faint); cursor: pointer; padding: 8px;
   min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
 }
-
-textarea.ai-paste,
-textarea.ai-preview {
-  width: 100%;
-  min-height: 72px;
-  max-height: 50vh;
-  resize: none;
-  overflow-y: hidden;
-  line-height: 1.55;
-  font-size: 14px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 11px 12px;
-  color: var(--text);
+textarea.ai-paste, textarea.ai-preview {
+  width: 100%; min-height: 72px; max-height: 50vh; resize: none; overflow-y: hidden;
+  line-height: 1.55; font-size: 14px; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px 12px; color: var(--text);
 }
-.ai-unmatched {
-  max-height: 40vh;
-  overflow: auto;
-  font-size: 13px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  color: var(--text-dim);
-}
+.ai-unmatched { max-height: 40vh; overflow: auto; font-size: 13px; line-height: 1.55; white-space: pre-wrap; color: var(--text-dim); }
+.verdict { margin: 14px 0 4px; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(34,211,238,0.07), transparent 46%); }
+.verdict-in { border-color: rgba(248,113,113,0.45); }
+.verdict-out { border-color: rgba(52,211,153,0.45); }
+.verdict-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
+.verdict-kicker { font-size: 10.5px; letter-spacing: 0.12em; color: var(--accent); font-weight: 700; }
+.verdict-title { font-size: 18px; font-weight: 700; margin-top: 2px; }
+.verdict-score { font-size: 22px; font-weight: 700; color: var(--accent); }
+.gate-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.gate { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: rgba(10,14,20,0.45); }
+.gate span { display: block; font-size: 11px; color: var(--text-dim); }
+.gate b { display: block; font-size: 13px; margin-top: 2px; }
+.gate small { display: block; margin-top: 2px; color: var(--text-faint); font-size: 10.5px; line-height: 1.35; }
+.gate-ok b { color: var(--red); }
+.gate-no b { color: var(--text-faint); }
+.verdict-note { margin-top: 10px; font-size: 12.5px; }
+.verdict-foot { margin-top: 6px; font-size: 10.5px; color: var(--text-faint); }
