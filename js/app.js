@@ -3,7 +3,7 @@ import { initStore } from './data/storage.js';
 import { renderOverviewView } from './features/overview.view.js';
 import { renderHoldingsView } from './features/holdings.view.js';
 import { renderTransactionsView } from './features/transactions.view.js';
-import { renderStockDetailView } from './features/stock-detail.view.js';
+import { renderStockDetailView } from './features/stock-detail.view.js?v=20261007';
 import { renderWatchlistView } from './features/watchlist.view.js';
 import { renderReviewView } from './features/review.view.js';
 import { renderSettingsView } from './features/settings.view.js';
