@@ -3,6 +3,7 @@ import { ManualPriceRepository, StockAiAnalysisRepository } from '../data/storag
 import { getLiveQuote, getLiveQuotes } from '../data/marketdata.js';
 import { loadInstitutionalData } from '../data/institutionalData.js';
 import { invalidateKLineCache } from '../data/loadKLine.js';
+import { renderPortfolioDashboard } from '../core/portfolioCharts.js';
 import { classifyAiAnalysisText, appendAiAnalysis } from '../core/aiAnalysisImport.js';
 import { downloadExcel } from '../utils/exportExcel.js';
 import { formatMoney, formatPercent, formatTime, pnlClass, escapeHtml } from '../utils/format.js';
@@ -55,6 +56,8 @@ function render(container) {
       </div>
     </div>
     <div id="ai-import-panel" hidden></div>
+    <div class="dash">${renderPortfolioDashboard(positions)}</div>
+    <div class="dash-section-label">持股明細</div>
     <div id="positions-list"></div>
   `;
 
