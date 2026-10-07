@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>交易損益</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261007d">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="style.css?v=20261007back">
 </head>
 <body>
   <div id="app">
@@ -13,7 +13,7 @@
       <div style="display:flex; align-items:center; gap:10px; padding:6px 8px 22px 8px;">
         <div class="logo-mark"></div>
         <div>
-          <div style="font-size:14px; font-weight:700; letter-spacing:0.2em;">交易損益</div>
+          <div style="font-size:14px; font-weight:700;">交易損益</div>
           <div class="text-faint" style="font-size:10.5px; letter-spacing:0.5px;">TRADE LEDGER</div>
         </div>
       </div>
@@ -26,13 +26,18 @@
         <button data-route="settings">資料設定</button>
       </div>
     </nav>
+
     <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
       <header class="topbar">
         <div class="logo-mark"></div>
         <div class="title">交易損益</div>
       </header>
-      <main><div id="view"></div></main>
+
+      <main>
+        <div id="view"></div>
+      </main>
     </div>
+
     <nav class="bottom-nav">
       <button data-route="overview">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
@@ -60,6 +65,7 @@
       </button>
     </nav>
   </div>
-  <script type="module" src="js/app.js?v=20261007d"></script>
+
+  <script type="module" src="js/app.js?v=20261007back"></script>
 </body>
 </html>
