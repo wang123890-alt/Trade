@@ -6,7 +6,6 @@ import { loadKLineFast } from '../data/loadKLine.js';
 import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
-import { renderRuleVerdict } from '../core/ruleVerdict.js';
 import { getRiskSettings } from '../data/riskSettings.js';
 import { attachLossReviews, computeBuyFacts } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
@@ -34,15 +33,13 @@ async function renderStockDetailView(container, stockId) {
   const lastTx = stockTx.length > 0 ? stockTx[stockTx.length - 1] : null;
   const stockName = lastTx ? lastTx.stockName : stockId;
   container.innerHTML = `
-    <div class="page-head">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
       <button class="icon-btn" id="back-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
       </button>
-      <div>
-        <div style="font-size:19px; font-weight:700;">${escapeHtml(stockName)} <span class="text-faint" style="font-weight:500; font-size:13px;">${escapeHtml(stockId)}</span></div>
-        ${lastTx ? `<div class="text-faint" style="font-size:12px; margin-top:2px;">最後交易日 ${formatDate(lastTx.dateTime)} · 成交價 ${lastTx.price}</div>` : ''}
-      </div>
+      <div style="font-size:19px; font-weight:700;">${escapeHtml(stockName)} <span class="text-faint" style="font-weight:500; font-size:13px;">${escapeHtml(stockId)}</span></div>
     </div>
+    ${lastTx ? `<div class="text-faint" style="font-size:12px; margin:0 0 12px 42px;">最後交易日 ${formatDate(lastTx.dateTime)} · 成交價 ${lastTx.price}</div>` : ''}
     <div id="chart-area" class="card"><div class="empty-state">載入K線資料中…</div></div>
     <div id="institutional-area"></div>
     <div id="notes-area"></div>
@@ -135,11 +132,26 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx, ...getRiskSettings() });
   const chartLevels = levelsForChart(tradeLevels);
   const lastIndex = bars.length - 1;
+  const cross = detectMACross(ma5, ma20, lastIndex);
+  const macdCross = detectMACross(macd.macdLine, macd.signalLine, lastIndex);
+  const dmiCross = detectMACross(dmi.plusDI, dmi.minusDI, lastIndex);
+  const lastRSI = rsi[lastIndex];
+  const lastADX = dmi.adx[lastIndex];
   const markers = stockTx.map((tx) => {
     const idx = bars.findIndex((b) => b.date === tx.dateTime.slice(0, 10));
     if (idx === -1) return null;
     return { index: idx, label: `${tx.price}`, color: tx.type === 'BUY' ? 'var(--red)' : 'var(--green)' };
   }).filter(Boolean);
+  const signalLines = [];
+  if (cross === 'golden') signalLines.push('MA5 / MA20 出現黃金交叉，短均線轉強');
+  if (cross === 'death') signalLines.push('MA5 / MA20 出現死亡交叉，短均線轉弱');
+  if (lastRSI != null && lastRSI >= RSI_OVERBOUGHT) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超買區間`);
+  if (lastRSI != null && lastRSI <= RSI_OVERSOLD) signalLines.push(`RSI 為 ${lastRSI.toFixed(0)}，接近超賣區間`);
+  if (macdCross === 'golden') signalLines.push('MACD 出現黃金交叉');
+  if (macdCross === 'death') signalLines.push('MACD 出現死亡交叉');
+  if (dmiCross === 'golden') signalLines.push('DMI：+DI上穿-DI');
+  if (dmiCross === 'death') signalLines.push('DMI：+DI下穿-DI');
+  if (lastADX != null && lastADX >= 25) signalLines.push(`ADX 為 ${lastADX.toFixed(0)}`);
   let selectedIndex = null;
   function buildChartSvg() {
     return renderKLineChart(bars, {
@@ -161,8 +173,11 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
     </div>
     <div class="text-faint" style="font-size:11px; margin-bottom:8px;">${meta.source ? `${meta.source} · ` : ''}${formatDateTime(meta.fetchedAt)}更新</div>
     <div id="kline-svg-wrap">${buildChartSvg()}</div>
-    ${renderRuleVerdict(tradeLevels)}
     ${renderTradeLevels(tradeLevels)}
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">訊號說明</div>
+      ${signalLines.length ? signalLines.map((l) => `<div style="font-size:12.5px; margin-bottom:4px;">・${l}</div>`).join('') : '<div class="text-faint" style="font-size:12.5px;">目前沒有明顯交叉或RSI極端訊號</div>'}
+    </div>
   `;
   const svgWrap = chartArea.querySelector('#kline-svg-wrap');
   svgWrap.addEventListener('click', (e) => {
@@ -182,6 +197,10 @@ function renderTradeLevels(levels) {
       <div style="text-align:right;"><div class="${valueClass}" style="font-size:13px; font-weight:700;">${escapeHtml(value)}</div>${basis ? `<div class="text-faint" style="font-size:10.5px;">${escapeHtml(basis)}</div>` : ''}</div>
     </div>`;
   return `<div style="margin-top:12px;">
+    <div style="font-size:13px; font-weight:700; margin-bottom:6px;">參考價位</div>
+    ${row('目前狀態', `${levels.price}`, levels.trendLabel || '')}
+    ${levels.resistance ? row('最近壓力', `${levels.resistance.price}`, `前波高點 ${levels.resistance.date.slice(5)}`) : ''}
+    ${levels.support ? row('最近支撐', `${levels.support.price}`, `前波低點 ${levels.support.date.slice(5)}`) : ''}
     ${row('停損', levels.stop?.price != null ? `${levels.stop.price}` : '—', levels.stop?.basis || '', 'text-green')}
     ${levels.structureTarget ? row('結構目標', `${levels.structureTarget.price}`, levels.structureTarget.basis, 'text-red') : ''}
     ${levels.target ? row('2R參考', `${levels.target.price}`, levels.target.basis, 'text-red') : ''}
