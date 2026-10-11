@@ -1904,6 +1904,37 @@
       "ruleAutoNote": "尚未同時滿足「收盤<MA5 且 MA5<MA10」",
       "createdAt": "2026-10-06T05:42:46.815Z",
       "updatedAt": "2026-10-06T05:42:46.815Z"
+    },
+    {
+      "id": "tx_mv3yn5oz_gedln8",
+      "stockId": "1303",
+      "stockName": "南亞",
+      "type": "BUY",
+      "dateTime": "2026-10-06",
+      "price": 295,
+      "quantity": 150,
+      "fee": 63,
+      "tax": 0,
+      "strategy": "",
+      "reason": "均線上揚，外資連2天買超",
+      "note": "",
+      "ruleTrend": "yes",
+      "ruleBreakout": "yes",
+      "ruleAdx": "yes",
+      "ruleVolume": "yes",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "ruleAuto": [
+        "ruleTrend",
+        "ruleBreakout",
+        "ruleAdx",
+        "ruleVolume"
+      ],
+      "ruleAutoNote": "符合多頭排列＋20日新高＋ADX＋量能四條件",
+      "createdAt": "2026-10-11T15:10:48.468Z",
+      "updatedAt": "2026-10-11T15:10:48.468Z"
     }
   ],
   "watchlist": [
