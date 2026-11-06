@@ -29,6 +29,10 @@ const DEFAULT_TYPE_WORDS = {
   sell: '現股賣出,賣出,普通賣出,一般賣出,SELL',
 };
 
+// 融資、融券、股利 are not cash trades. Matched before the buy/sell words
+// so a short word like「買進」does not swallow「融資買進」.
+const SKIP_WORD = /融資|融券|股利|股息|配息|除權|除息|借券/;
+
 function loadMap() {
   try {
     return JSON.parse(localStorage.getItem(MAP_KEY) || 'null');
@@ -47,31 +51,39 @@ function parseCsv(text) {
   let row = [];
   let field = '';
   let inQuotes = false;
-  const s = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const s = String(text || '').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (inQuotes) {
       if (c === '"' && s[i + 1] === '"') { field += '"'; i++; }
       else if (c === '"') inQuotes = false;
       else field += c;
-    } else {
-      if (c === '"') inQuotes = true;
-      else if (c === ',') { row.push(field); field = ''; }
-      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-      else field += c;
-    }
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
   }
   if (field || row.length) { row.push(field); rows.push(row); }
   return rows.filter((r) => r.some((c) => String(c).trim()));
 }
 
+function ymd(y, mo, d) {
+  let year = Number(y);
+  const month = Number(mo);
+  const day = Number(d);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return '';
+  if (year < 1911) year += 1911;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 function normalizeDate(raw) {
   const s = String(raw || '').trim();
   if (!s) return '';
-  const m = s.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-  const m2 = s.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+  const m = s.match(/(\d{2,4})[/\-.](\d{1,2})[/\-.](\d{1,2})/);
+  if (m) return ymd(m[1], m[2], m[3]);
+  if (/^\d{8}$/.test(s)) return ymd(s.slice(0, 4), s.slice(4, 6), s.slice(6, 8));
+  if (/^\d{7}$/.test(s)) return ymd(s.slice(0, 3), s.slice(3, 5), s.slice(5, 7));
+  if (/^\d{6}$/.test(s)) return ymd(s.slice(0, 2), s.slice(2, 4), s.slice(4, 6));
   return '';
 }
 
@@ -83,12 +95,16 @@ function toNumber(raw) {
 
 function typeFromWord(word, typeMap) {
   const w = String(word || '').trim();
-  if (!w) return null;
-  const buys = typeMap.buy.split(/[,\uff0c]/).map((s) => s.trim()).filter(Boolean);
-  const sells = typeMap.sell.split(/[,\uff0c]/).map((s) => s.trim()).filter(Boolean);
+  if (!w || SKIP_WORD.test(w)) return null;
+  const buys = typeMap.buy.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+  const sells = typeMap.sell.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
   if (buys.some((b) => w.includes(b))) return 'BUY';
   if (sells.some((s) => w.includes(s))) return 'SELL';
   return null;
+}
+
+function rowKey(t) {
+  return `${t.stockId}|${t.type}|${String(t.dateTime).slice(0, 10)}|${t.price}|${t.quantity}`;
 }
 
 /** Build candidate transactions from parsed rows + current mapping.
@@ -109,7 +125,7 @@ function buildCandidates(rows, columnMap, typeMap) {
     const typeWord = idx.type >= 0 ? r[idx.type] : '';
     const type = typeFromWord(typeWord, typeMap);
     if (!type) {
-      skipped.push({ row: i + 1, reason: `非買賣（${String(typeWord || '').trim() || '空'} ）` });
+      skipped.push({ row: i + 1, reason: `非買賣（${String(typeWord || '').trim() || '空'}）` });
       continue;
     }
     const input = {
@@ -136,20 +152,23 @@ function buildCandidates(rows, columnMap, typeMap) {
 }
 
 /** Classify candidates against existing transactions.
- * Duplicate = same stockId + type + date + price + quantity.
- * Over-sell is checked on the combined list (existing + non-duplicates). */
+ * Duplicate = same stockId + type + date + price + quantity, including
+ * a repeated row inside this file.
+ * An over-sell is dropped from `add` (the rest can still be written). */
 function preview(candidates, existing) {
-  const key = (t) => `${t.stockId}|${t.type}|${t.dateTime}|${t.price}|${t.quantity}`;
-  const have = new Set(existing.map(key));
+  const have = new Set(existing.map(rowKey));
   const add = [];
   const skip = [];
   for (const c of candidates) {
-    if (have.has(key(c))) skip.push(c);
-    else add.push(c);
+    const k = rowKey(c);
+    if (have.has(k)) skip.push(c);
+    else { add.push(c); have.add(k); }
   }
   const { errors } = runFifo([...existing, ...add]);
+  if (!errors.length) return { add, skip, reject: [] };
+  const bad = new Set(errors.map((e) => e.transaction.id));
   return {
-    add,
+    add: add.filter((t) => !bad.has(t.id)),
     skip,
     reject: errors.map((e) => e.error.message),
   };

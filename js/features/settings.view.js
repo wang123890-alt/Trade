@@ -190,10 +190,10 @@ function renderSettingsView(container) {
       : '';
     previewBox.innerHTML = `
       <div class="text-faint" style="font-size:12px; margin-top:10px;">
-        預覽：新增 ${pv.add.length} 筆，跳過重複 ${pv.skip.length} 筆，略過 ${skipped.length} 筆
+        預覽：新增 ${pv.add.length} 筆，跳過重複 ${pv.skip.length} 筆，略過 ${skipped.length} 筆${pv.reject.length ? `，擋下超賣 ${pv.reject.length} 筆` : ''}
       </div>
       ${rejectHtml}
-      <button class="btn btn-primary btn-block" id="stmt-commit" style="margin-top:8px;" ${pv.add.length === 0 || pv.reject.length ? 'disabled' : ''}>確認寫入 ${pv.add.length} 筆</button>
+      <button class="btn btn-primary btn-block" id="stmt-commit" style="margin-top:8px;" ${pv.add.length === 0 ? 'disabled' : ''}>確認寫入 ${pv.add.length} 筆</button>
     `;
     const btn = previewBox.querySelector('#stmt-commit');
     if (btn) {
