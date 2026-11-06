@@ -3,10 +3,15 @@ import { autoAddFullyClosedFromTransactions } from './watchlist.js';
 import { TransactionRepository, initStore, refreshFromRemote, isRemoteAvailable } from '../data/storage.js';
 import * as githubStore from '../data/githubStore.js';
 import { getRiskSettings, setRiskSettings } from '../data/riskSettings.js';
+import {
+  FIELDS, DEFAULT_TYPE_WORDS, loadMap, saveMap,
+  parseCsv, buildCandidates, preview, commit,
+} from './statementImport.js';
 
 function renderSettingsView(container) {
   const config = githubStore.getConfig() || {};
   const configured = githubStore.isConfigured();
+  const saved = loadMap() || { columns: {}, type: { ...DEFAULT_TYPE_WORDS } };
 
   container.innerHTML = `
     <div style="font-size:20px; font-weight:700; margin-bottom:16px;">資料設定</div>
@@ -70,6 +75,20 @@ function renderSettingsView(container) {
       <button class="btn btn-block" id="export-csv-btn">匯出交易紀錄 (CSV)</button>
     </div>
 
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px;">匯入對帳單（CSV）</div>
+      <div class="text-faint" style="font-size:12px; margin-bottom:12px;">
+        券商欄位不一樣，對一次會記住。融資、融券、股利先略過。規則、策略、原因留空。
+      </div>
+      <div id="stmt-result"></div>
+      <div class="form-field">
+        <label>選擇 CSV 檔案</label>
+        <input type="file" id="stmt-file" accept=".csv,text/csv">
+      </div>
+      <div id="stmt-map" style="display:none;"></div>
+      <div id="stmt-preview"></div>
+    </div>
+
     <div class="card">
       <div style="font-size:14px; font-weight:700; margin-bottom:10px;">匯入備份</div>
       <div id="import-result"></div>
@@ -89,9 +108,9 @@ function renderSettingsView(container) {
   if (capEl && risk.capital) capEl.value = risk.capital;
   if (pctEl) pctEl.value = risk.riskPct;
   container.querySelector('#risk-save-btn').addEventListener('click', () => {
-    const saved = setRiskSettings({ capital: capEl.value, riskPct: pctEl.value });
+    const savedRisk = setRiskSettings({ capital: capEl.value, riskPct: pctEl.value });
     container.querySelector('#risk-save-result').textContent =
-      saved.capital ? `已存：本金 ${saved.capital}、單筆 ${saved.riskPct}%` : '本金未填，個股頁股數會空白';
+      savedRisk.capital ? `已存：本金 ${savedRisk.capital}、單筆 ${savedRisk.riskPct}%` : '本金未填，個股頁股數會空白';
   });
 
   container.querySelector('#export-json-btn').addEventListener('click', () => exportAsJson());
@@ -139,6 +158,107 @@ function renderSettingsView(container) {
         : `<div class="error-banner">同步失敗：${result.error?.message || '未知錯誤'}</div>`;
     });
   }
+
+  // --- statement import ---
+  let stmtRows = null;
+  const mapBox = container.querySelector('#stmt-map');
+  const previewBox = container.querySelector('#stmt-preview');
+  const stmtResult = container.querySelector('#stmt-result');
+
+  function currentMap() {
+    const columns = {};
+    for (const f of FIELDS) {
+      const sel = mapBox.querySelector(`[data-field="${f.key}"]`);
+      if (sel) columns[f.key] = sel.value;
+    }
+    return {
+      columns,
+      type: {
+        buy: mapBox.querySelector('[data-type="buy"]')?.value || DEFAULT_TYPE_WORDS.buy,
+        sell: mapBox.querySelector('[data-type="sell"]')?.value || DEFAULT_TYPE_WORDS.sell,
+      },
+    };
+  }
+
+  function renderPreview() {
+    if (!stmtRows) { previewBox.innerHTML = ''; return; }
+    const map = currentMap();
+    const { candidates, skipped } = buildCandidates(stmtRows, map.columns, map.type);
+    const pv = preview(candidates, TransactionRepository.getAll());
+    const rejectHtml = pv.reject.length
+      ? `<div class="error-banner" style="margin-top:8px;">超賣擋下：${pv.reject.join('；')}</div>`
+      : '';
+    previewBox.innerHTML = `
+      <div class="text-faint" style="font-size:12px; margin-top:10px;">
+        預覽：新增 ${pv.add.length} 筆，跳過重複 ${pv.skip.length} 筆，略過 ${skipped.length} 筆
+      </div>
+      ${rejectHtml}
+      <button class="btn btn-primary btn-block" id="stmt-commit" style="margin-top:8px;" ${pv.add.length === 0 || pv.reject.length ? 'disabled' : ''}>確認寫入 ${pv.add.length} 筆</button>
+    `;
+    const btn = previewBox.querySelector('#stmt-commit');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '寫入中…';
+        const result = await commit(pv.add);
+        if (!result.ok) {
+          stmtResult.innerHTML = `<div class="error-banner">${result.error}</div>`;
+          btn.disabled = false;
+          btn.textContent = `確認寫入 ${pv.add.length} 筆`;
+          return;
+        }
+        saveMap(currentMap());
+        stmtResult.innerHTML = `<div class="card" style="background:var(--green-dim); border-color:rgba(52,211,153,0.25);">已寫入 ${result.added} 筆。規則、策略、原因留空，可到交易頁補。</div>`;
+        mapBox.style.display = 'none';
+        previewBox.innerHTML = '';
+        container.querySelector('#stmt-file').value = '';
+      });
+    }
+  }
+
+  function renderMap(headers) {
+    const map = loadMap() || { columns: {}, type: { ...DEFAULT_TYPE_WORDS } };
+    const opts = (key) => headers.map((h) => `<option value="${h}" ${map.columns[key] === h ? 'selected' : ''}>${h}</option>`).join('');
+    mapBox.innerHTML = `
+      <div style="font-size:13px; font-weight:600; margin:12px 0 8px;">對欄位</div>
+      ${FIELDS.map((f) => `
+        <div class="form-field">
+          <label>${f.label}${f.required ? '' : '（可空）'}</label>
+          <select data-field="${f.key}">
+            <option value="">不對應</option>
+            ${opts(f.key)}
+          </select>
+        </div>`).join('')}
+      <div style="font-size:13px; font-weight:600; margin:12px 0 8px;">對用詞（逗號分隔）</div>
+      <div class="form-field">
+        <label>算買進</label>
+        <input type="text" data-type="buy" value="${map.type.buy || DEFAULT_TYPE_WORDS.buy}">
+      </div>
+      <div class="form-field">
+        <label>算賣出</label>
+        <input type="text" data-type="sell" value="${map.type.sell || DEFAULT_TYPE_WORDS.sell}">
+      </div>
+    `;
+    mapBox.style.display = 'block';
+    mapBox.querySelectorAll('select, input').forEach((el) => {
+      el.addEventListener('change', renderPreview);
+      el.addEventListener('input', renderPreview);
+    });
+    renderPreview();
+  }
+
+  container.querySelector('#stmt-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    stmtResult.innerHTML = '';
+    const text = await file.text();
+    stmtRows = parseCsv(text);
+    if (!stmtRows.length) {
+      stmtResult.innerHTML = '<div class="error-banner">檔案沒有讀到列</div>';
+      return;
+    }
+    renderMap(stmtRows[0].map((h) => String(h).trim()));
+  });
 
   container.querySelector('#import-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
