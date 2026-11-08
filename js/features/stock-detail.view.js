@@ -6,7 +6,6 @@ import { loadKLineFast } from '../data/loadKLine.js';
 import { computeMA, computeRSI, computeMACD, computeDMI, computeATR, detectMACross } from '../core/indicators.js';
 import { renderKLineChart } from '../core/chart.js';
 import { computeTradeLevels, levelsForChart } from '../core/tradeLevels.js';
-import { getRiskSettings } from '../data/riskSettings.js';
 import { attachLossReviews, computeBuyFacts } from './review.js';
 import { groupByStrategy } from '../core/statistics.js';
 import { formatMoney, formatDate, formatDateTime, pnlClass, escapeHtml } from '../utils/format.js';
@@ -129,7 +128,7 @@ function renderChartFromBars(chartArea, bars, stockTx, meta = {}) {
   const macd = computeMACD(bars);
   const dmi = computeDMI(bars);
   const atr = computeATR(bars, 14);
-  const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx, ...getRiskSettings() });
+  const tradeLevels = computeTradeLevels(bars, { ma5, ma10, ma20, ma60, atr, adx: dmi.adx });
   const chartLevels = levelsForChart(tradeLevels);
   const lastIndex = bars.length - 1;
   const cross = detectMACross(ma5, ma20, lastIndex);
@@ -204,7 +203,6 @@ function renderTradeLevels(levels) {
     ${row('停損', levels.stop?.price != null ? `${levels.stop.price}` : '—', levels.stop?.basis || '', 'text-green')}
     ${levels.structureTarget ? row('結構目標', `${levels.structureTarget.price}`, levels.structureTarget.basis, 'text-red') : ''}
     ${levels.target ? row('2R參考', `${levels.target.price}`, levels.target.basis, 'text-red') : ''}
-    ${levels.size ? row('可買', levels.size.lots > 0 ? `${levels.size.lots}張` : `${levels.size.shares}股`, `波段本金 ${levels.size.capital} × ${levels.size.riskPct}%`) : ''}
   </div>`;
 }
 
