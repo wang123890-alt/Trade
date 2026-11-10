@@ -1,34 +1,6 @@
 {
   "1303": [
     {
-      "date": "2026-10-27",
-      "foreign_net": -11967985,
-      "trust_net": 1879000,
-      "dealer_net": 806857,
-      "inst_total_net": -9282128
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 10803485,
-      "trust_net": 559000,
-      "dealer_net": 515852,
-      "inst_total_net": 11878337
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -5521019,
-      "trust_net": 1255858,
-      "dealer_net": 45809,
-      "inst_total_net": -4219352
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -15973583,
-      "trust_net": 2245000,
-      "dealer_net": 245330,
-      "inst_total_net": -13483253
-    },
-    {
       "date": "2026-11-03",
       "foreign_net": -27189115,
       "trust_net": 1239000,
@@ -55,37 +27,16 @@
       "trust_net": 3638817,
       "dealer_net": 2616213,
       "inst_total_net": -1264352
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 8221367,
+      "trust_net": 9864000,
+      "dealer_net": 123815,
+      "inst_total_net": 18209182
     }
   ],
   "1513": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -62403,
-      "trust_net": -2506,
-      "dealer_net": -4314,
-      "inst_total_net": -69223
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -377846,
-      "trust_net": 6000,
-      "dealer_net": -7317,
-      "inst_total_net": -379163
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 7746,
-      "trust_net": 1000,
-      "dealer_net": -21487,
-      "inst_total_net": -12741
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -573388,
-      "trust_net": -203,
-      "dealer_net": 21341,
-      "inst_total_net": -552250
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -735286,
@@ -113,37 +64,16 @@
       "trust_net": 12293,
       "dealer_net": 92113,
       "inst_total_net": -82970
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -104382,
+      "trust_net": 5000,
+      "dealer_net": 80644,
+      "inst_total_net": -18738
     }
   ],
   "1515": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 139610,
-      "trust_net": -77000,
-      "dealer_net": 0,
-      "inst_total_net": 62610
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 14812,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 14812
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 117000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 117000
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 94981,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 94981
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 230050,
@@ -171,37 +101,16 @@
       "trust_net": 0,
       "dealer_net": 4000,
       "inst_total_net": 547678
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 45065,
+      "trust_net": 0,
+      "dealer_net": -7000,
+      "inst_total_net": 38065
     }
   ],
   "1584": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -96000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": -96000
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 68000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 68000
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 40000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 40000
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -81000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": -81000
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -89000,
@@ -229,37 +138,16 @@
       "trust_net": 0,
       "dealer_net": 10798,
       "inst_total_net": 35496
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -116711,
+      "trust_net": 0,
+      "dealer_net": 2000,
+      "inst_total_net": -114711
     }
   ],
   "1605": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -560153,
-      "trust_net": 0,
-      "dealer_net": 184822,
-      "inst_total_net": -375331
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 741241,
-      "trust_net": 4000,
-      "dealer_net": 30034,
-      "inst_total_net": 775275
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -1144993,
-      "trust_net": 7000,
-      "dealer_net": 160072,
-      "inst_total_net": -977921
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -8352939,
-      "trust_net": 97193,
-      "dealer_net": -243170,
-      "inst_total_net": -8498916
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -17705763,
@@ -287,37 +175,16 @@
       "trust_net": 2613,
       "dealer_net": 134739,
       "inst_total_net": -5521280
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -3154120,
+      "trust_net": 514000,
+      "dealer_net": 365332,
+      "inst_total_net": -2274788
     }
   ],
   "2059": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 64023,
-      "trust_net": 32100,
-      "dealer_net": 12455,
-      "inst_total_net": 108578
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 68887,
-      "trust_net": 17084,
-      "dealer_net": -16507,
-      "inst_total_net": 69464
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 22153,
-      "trust_net": 50010,
-      "dealer_net": -14385,
-      "inst_total_net": 57778
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -15011,
-      "trust_net": 37173,
-      "dealer_net": -785,
-      "inst_total_net": 21377
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -32281,
@@ -345,37 +212,16 @@
       "trust_net": 95009,
       "dealer_net": 10959,
       "inst_total_net": 72779
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -230551,
+      "trust_net": 40088,
+      "dealer_net": -8501,
+      "inst_total_net": -198964
     }
   ],
   "2303": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 1975157,
-      "trust_net": -2721754,
-      "dealer_net": 663967,
-      "inst_total_net": -82630
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 12886741,
-      "trust_net": -1172186,
-      "dealer_net": 550711,
-      "inst_total_net": 12265266
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -129271902,
-      "trust_net": -44816968,
-      "dealer_net": -8700497,
-      "inst_total_net": -182789367
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 4870526,
-      "trust_net": -35437533,
-      "dealer_net": 380095,
-      "inst_total_net": -30186912
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 5680889,
@@ -403,37 +249,16 @@
       "trust_net": 2153772,
       "dealer_net": -415758,
       "inst_total_net": -119337
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -14636280,
+      "trust_net": -15000,
+      "dealer_net": 683345,
+      "inst_total_net": -13967935
     }
   ],
   "2305": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 1211641,
-      "trust_net": -4000,
-      "dealer_net": -16190,
-      "inst_total_net": 1191451
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -328743,
-      "trust_net": 2000,
-      "dealer_net": -894,
-      "inst_total_net": -327637
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -218102,
-      "trust_net": 0,
-      "dealer_net": -15145,
-      "inst_total_net": -233247
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 528633,
-      "trust_net": 0,
-      "dealer_net": -10701,
-      "inst_total_net": 517932
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 424262,
@@ -461,37 +286,16 @@
       "trust_net": 1000,
       "dealer_net": -20125,
       "inst_total_net": 987801
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 178712,
+      "trust_net": 0,
+      "dealer_net": -1409,
+      "inst_total_net": 177303
     }
   ],
   "2317": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 4971884,
-      "trust_net": 828167,
-      "dealer_net": 1323907,
-      "inst_total_net": 7123958
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 11299686,
-      "trust_net": 216503,
-      "dealer_net": 566373,
-      "inst_total_net": 12082562
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 3341501,
-      "trust_net": 512127,
-      "dealer_net": -116214,
-      "inst_total_net": 3737414
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -3392427,
-      "trust_net": 1373663,
-      "dealer_net": 124298,
-      "inst_total_net": -1894466
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 2393801,
@@ -519,37 +323,16 @@
       "trust_net": 2101744,
       "dealer_net": 4266715,
       "inst_total_net": -7714006
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 2303453,
+      "trust_net": 322000,
+      "dealer_net": -460319,
+      "inst_total_net": 2165134
     }
   ],
   "2327": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 5327823,
-      "trust_net": 469721,
-      "dealer_net": 501711,
-      "inst_total_net": 6299255
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 7069021,
-      "trust_net": 26939,
-      "dealer_net": 335933,
-      "inst_total_net": 7431893
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -3852926,
-      "trust_net": 174274,
-      "dealer_net": 631564,
-      "inst_total_net": -3047088
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -16111182,
-      "trust_net": 690830,
-      "dealer_net": -1046164,
-      "inst_total_net": -16466516
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -5960479,
@@ -577,37 +360,16 @@
       "trust_net": -660462,
       "dealer_net": 313687,
       "inst_total_net": -1228490
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 154644,
+      "trust_net": -1201300,
+      "dealer_net": 58814,
+      "inst_total_net": -987842
     }
   ],
   "2330": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -1618431,
-      "trust_net": 2420415,
-      "dealer_net": 1907049,
-      "inst_total_net": 2709033
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -3175021,
-      "trust_net": 844056,
-      "dealer_net": 262175,
-      "inst_total_net": -2068790
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -10199,
-      "trust_net": 443114,
-      "dealer_net": -281233,
-      "inst_total_net": 151682
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -8632834,
-      "trust_net": 1854677,
-      "dealer_net": 922012,
-      "inst_total_net": -5856145
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -11703020,
@@ -635,37 +397,16 @@
       "trust_net": 4669484,
       "dealer_net": 8701821,
       "inst_total_net": -9473176
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -8181770,
+      "trust_net": 5634335,
+      "dealer_net": -766472,
+      "inst_total_net": -3313907
     }
   ],
   "2393": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 257857,
-      "trust_net": 0,
-      "dealer_net": -3111,
-      "inst_total_net": 254746
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 1461937,
-      "trust_net": 8510,
-      "dealer_net": 105851,
-      "inst_total_net": 1576298
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -15297,
-      "trust_net": 0,
-      "dealer_net": -7238,
-      "inst_total_net": -22535
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 182948,
-      "trust_net": 16000,
-      "dealer_net": -14190,
-      "inst_total_net": 184758
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 387843,
@@ -693,37 +434,16 @@
       "trust_net": 14100,
       "dealer_net": -810950,
       "inst_total_net": -263468
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -247163,
+      "trust_net": 12609,
+      "dealer_net": -11872,
+      "inst_total_net": -246426
     }
   ],
   "2408": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 11566360,
-      "trust_net": 490683,
-      "dealer_net": 866374,
-      "inst_total_net": 12923417
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 5428715,
-      "trust_net": 447624,
-      "dealer_net": 652298,
-      "inst_total_net": 6528637
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 5661474,
-      "trust_net": 623225,
-      "dealer_net": 104751,
-      "inst_total_net": 6389450
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -3374333,
-      "trust_net": 151345,
-      "dealer_net": -478038,
-      "inst_total_net": -3701026
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -13283995,
@@ -751,37 +471,16 @@
       "trust_net": 106162,
       "dealer_net": -182356,
       "inst_total_net": 5547460
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 7280772,
+      "trust_net": -2989000,
+      "dealer_net": 104374,
+      "inst_total_net": 4396146
     }
   ],
   "2409": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -95959953,
-      "trust_net": 3520162,
-      "dealer_net": -2775267,
-      "inst_total_net": -95215058
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 68585188,
-      "trust_net": 181713,
-      "dealer_net": 9162727,
-      "inst_total_net": 77929628
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -50436463,
-      "trust_net": 23000,
-      "dealer_net": -5829229,
-      "inst_total_net": -56242692
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -28002424,
-      "trust_net": -1612217,
-      "dealer_net": -6870569,
-      "inst_total_net": -36485210
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -3158933,
@@ -809,37 +508,16 @@
       "trust_net": 149652,
       "dealer_net": -268002,
       "inst_total_net": 18725895
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -13634713,
+      "trust_net": 691000,
+      "dealer_net": -689700,
+      "inst_total_net": -13633413
     }
   ],
   "2449": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 4801012,
-      "trust_net": 744000,
-      "dealer_net": 477839,
-      "inst_total_net": 6022851
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 1562498,
-      "trust_net": 272401,
-      "dealer_net": -345479,
-      "inst_total_net": 1489420
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -2549942,
-      "trust_net": 27199,
-      "dealer_net": -75885,
-      "inst_total_net": -2598628
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -564769,
-      "trust_net": 75049,
-      "dealer_net": -409757,
-      "inst_total_net": -899477
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -184728,
@@ -867,37 +545,16 @@
       "trust_net": 92189,
       "dealer_net": 368221,
       "inst_total_net": -7773874
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 451585,
+      "trust_net": 238900,
+      "dealer_net": 1410605,
+      "inst_total_net": 2101090
     }
   ],
   "2454": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -2339361,
-      "trust_net": 674536,
-      "dealer_net": 173317,
-      "inst_total_net": -1491508
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -1036859,
-      "trust_net": 551964,
-      "dealer_net": 276340,
-      "inst_total_net": -208555
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -1682237,
-      "trust_net": 366256,
-      "dealer_net": 93525,
-      "inst_total_net": -1222456
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -2953353,
-      "trust_net": 673479,
-      "dealer_net": 92586,
-      "inst_total_net": -2187288
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -3827239,
@@ -925,37 +582,16 @@
       "trust_net": 556029,
       "dealer_net": 798328,
       "inst_total_net": -3181469
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -2586820,
+      "trust_net": 1159750,
+      "dealer_net": -372046,
+      "inst_total_net": -1799116
     }
   ],
   "2481": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -52195,
-      "trust_net": 0,
-      "dealer_net": -86645,
-      "inst_total_net": -138840
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 1042817,
-      "trust_net": -158000,
-      "dealer_net": -21026,
-      "inst_total_net": 863791
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -1061390,
-      "trust_net": 0,
-      "dealer_net": -169536,
-      "inst_total_net": -1230926
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 1463004,
-      "trust_net": -132000,
-      "dealer_net": -70861,
-      "inst_total_net": 1260143
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 703137,
@@ -983,37 +619,16 @@
       "trust_net": 0,
       "dealer_net": -178601,
       "inst_total_net": 1549086
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 190976,
+      "trust_net": 265500,
+      "dealer_net": 535857,
+      "inst_total_net": 992333
     }
   ],
   "2489": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -437732,
-      "trust_net": 0,
-      "dealer_net": -59045,
-      "inst_total_net": -496777
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 1026611,
-      "trust_net": 16600,
-      "dealer_net": -53612,
-      "inst_total_net": 989599
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -1133423,
-      "trust_net": 0,
-      "dealer_net": -45357,
-      "inst_total_net": -1178780
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -1278752,
-      "trust_net": 0,
-      "dealer_net": -1054312,
-      "inst_total_net": -2333064
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 1905986,
@@ -1041,37 +656,16 @@
       "trust_net": 2500,
       "dealer_net": -292682,
       "inst_total_net": 2564896
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 1039132,
+      "trust_net": 21400,
+      "dealer_net": 177327,
+      "inst_total_net": 1237859
     }
   ],
   "2540": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 38973,
-      "trust_net": 0,
-      "dealer_net": -33000,
-      "inst_total_net": 5973
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -34471,
-      "trust_net": 0,
-      "dealer_net": -36000,
-      "inst_total_net": -70471
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 147700,
-      "trust_net": 0,
-      "dealer_net": -118000,
-      "inst_total_net": 29700
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 228389,
-      "trust_net": 0,
-      "dealer_net": 4000,
-      "inst_total_net": 232389
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 107110,
@@ -1099,37 +693,16 @@
       "trust_net": 0,
       "dealer_net": -30000,
       "inst_total_net": 23258
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -109252,
+      "trust_net": 0,
+      "dealer_net": -17000,
+      "inst_total_net": -126252
     }
   ],
   "2883": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -35961,
-      "trust_net": 4144989,
-      "dealer_net": 1579189,
-      "inst_total_net": 5688217
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 9688093,
-      "trust_net": 741247,
-      "dealer_net": -4817,
-      "inst_total_net": 10424523
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -2410211,
-      "trust_net": 713743,
-      "dealer_net": -152075,
-      "inst_total_net": -1848543
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -8169500,
-      "trust_net": 1045000,
-      "dealer_net": 2768600,
-      "inst_total_net": -4355900
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -27079407,
@@ -1157,37 +730,16 @@
       "trust_net": 2676613,
       "dealer_net": 10692547,
       "inst_total_net": 5758710
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -2268071,
+      "trust_net": 3898000,
+      "dealer_net": 398451,
+      "inst_total_net": 2028380
     }
   ],
   "2885": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 6057978,
-      "trust_net": 1390795,
-      "dealer_net": 1006497,
-      "inst_total_net": 8455270
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 7051280,
-      "trust_net": 1743271,
-      "dealer_net": 393523,
-      "inst_total_net": 9188074
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 3849095,
-      "trust_net": 768997,
-      "dealer_net": 410074,
-      "inst_total_net": 5028166
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -4125660,
-      "trust_net": 2448000,
-      "dealer_net": 1498486,
-      "inst_total_net": -179174
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -5117969,
@@ -1215,37 +767,16 @@
       "trust_net": 2821903,
       "dealer_net": 7113171,
       "inst_total_net": -6392841
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 3208537,
+      "trust_net": -1398000,
+      "dealer_net": 305211,
+      "inst_total_net": 2115748
     }
   ],
   "2887": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -263004,
-      "trust_net": 1394000,
-      "dealer_net": 2161907,
-      "inst_total_net": 3292903
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -166121,
-      "trust_net": -174000,
-      "dealer_net": 226961,
-      "inst_total_net": -113160
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 19911707,
-      "trust_net": -1548918,
-      "dealer_net": 200746,
-      "inst_total_net": 18563535
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -14208722,
-      "trust_net": 13184000,
-      "dealer_net": 2825258,
-      "inst_total_net": 1800536
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -7286116,
@@ -1273,37 +804,16 @@
       "trust_net": 8818888,
       "dealer_net": 14562767,
       "inst_total_net": 17579283
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 7542094,
+      "trust_net": -2315000,
+      "dealer_net": 759765,
+      "inst_total_net": 5986859
     }
   ],
   "3023": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -1723564,
-      "trust_net": 311000,
-      "dealer_net": 1138,
-      "inst_total_net": -1411426
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -666211,
-      "trust_net": -41000,
-      "dealer_net": 3789,
-      "inst_total_net": -703422
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -686755,
-      "trust_net": 0,
-      "dealer_net": 2852,
-      "inst_total_net": -683903
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -52794,
-      "trust_net": 8000,
-      "dealer_net": 45115,
-      "inst_total_net": 321
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -372525,
@@ -1331,37 +841,16 @@
       "trust_net": 165000,
       "dealer_net": 67340,
       "inst_total_net": -104043
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -226016,
+      "trust_net": 750000,
+      "dealer_net": 12308,
+      "inst_total_net": 536292
     }
   ],
   "3092": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 35293,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 35293
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 30000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 30000
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 26000,
-      "trust_net": 0,
-      "dealer_net": 0,
-      "inst_total_net": 26000
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -42000,
-      "trust_net": 0,
-      "dealer_net": 1000,
-      "inst_total_net": -41000
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -10000,
@@ -1389,37 +878,16 @@
       "trust_net": 0,
       "dealer_net": -15000,
       "inst_total_net": 22000
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -215000,
+      "trust_net": 0,
+      "dealer_net": 0,
+      "inst_total_net": -215000
     }
   ],
   "3231": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -1879956,
-      "trust_net": 1112617,
-      "dealer_net": 316743,
-      "inst_total_net": -450596
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 9419395,
-      "trust_net": 439127,
-      "dealer_net": 974587,
-      "inst_total_net": 10833109
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -8111637,
-      "trust_net": 619526,
-      "dealer_net": -136430,
-      "inst_total_net": -7628541
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -12964533,
-      "trust_net": 529586,
-      "dealer_net": -1011877,
-      "inst_total_net": -13446824
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -8063107,
@@ -1447,37 +915,16 @@
       "trust_net": 550547,
       "dealer_net": 1266079,
       "inst_total_net": -1703889
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -8522683,
+      "trust_net": 656000,
+      "dealer_net": 70933,
+      "inst_total_net": -7795750
     }
   ],
   "3287": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 209000,
-      "trust_net": 0,
-      "dealer_net": -53486,
-      "inst_total_net": 155514
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -34000,
-      "trust_net": 0,
-      "dealer_net": 19298,
-      "inst_total_net": -14702
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -9000,
-      "trust_net": 0,
-      "dealer_net": 10132,
-      "inst_total_net": 1132
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 120000,
-      "trust_net": 0,
-      "dealer_net": -2000,
-      "inst_total_net": 118000
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 476410,
@@ -1505,37 +952,16 @@
       "trust_net": 0,
       "dealer_net": -1000,
       "inst_total_net": 269000
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -343000,
+      "trust_net": 0,
+      "dealer_net": 21000,
+      "inst_total_net": -322000
     }
   ],
   "3293": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 216027,
-      "trust_net": -3000,
-      "dealer_net": 13603,
-      "inst_total_net": 226630
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -3507,
-      "trust_net": -14000,
-      "dealer_net": -1828,
-      "inst_total_net": -19335
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 773859,
-      "trust_net": -1000,
-      "dealer_net": 35441,
-      "inst_total_net": 808300
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 691923,
-      "trust_net": -18000,
-      "dealer_net": 26139,
-      "inst_total_net": 700062
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 236057,
@@ -1563,37 +989,16 @@
       "trust_net": 64000,
       "dealer_net": -48530,
       "inst_total_net": 160018
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 190241,
+      "trust_net": 44000,
+      "dealer_net": 19497,
+      "inst_total_net": 253738
     }
   ],
   "3450": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -14553,
-      "trust_net": 1000,
-      "dealer_net": 1917,
-      "inst_total_net": -11636
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -497249,
-      "trust_net": -20000,
-      "dealer_net": -7197,
-      "inst_total_net": -524446
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -1059169,
-      "trust_net": 836000,
-      "dealer_net": -4223,
-      "inst_total_net": -227392
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -108060,
-      "trust_net": 374000,
-      "dealer_net": -28286,
-      "inst_total_net": 237654
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 200874,
@@ -1621,37 +1026,16 @@
       "trust_net": -200000,
       "dealer_net": -25166,
       "inst_total_net": 1371088
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -63242,
+      "trust_net": 819000,
+      "dealer_net": -729,
+      "inst_total_net": 755029
     }
   ],
   "3481": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 310243,
-      "trust_net": 240345,
-      "dealer_net": -1133181,
-      "inst_total_net": -582593
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 21908503,
-      "trust_net": 193784,
-      "dealer_net": 3883745,
-      "inst_total_net": 25986032
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -46307224,
-      "trust_net": 100000,
-      "dealer_net": -6025274,
-      "inst_total_net": -52232498
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -12940101,
-      "trust_net": 170299,
-      "dealer_net": -4352804,
-      "inst_total_net": -17122606
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -18567812,
@@ -1679,37 +1063,16 @@
       "trust_net": 21453,
       "dealer_net": 3021967,
       "inst_total_net": 24356937
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -19480757,
+      "trust_net": 35200,
+      "dealer_net": 2360459,
+      "inst_total_net": -17085098
     }
   ],
   "3583": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 183938,
-      "trust_net": -127000,
-      "dealer_net": -5027,
-      "inst_total_net": 51911
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 223990,
-      "trust_net": -237000,
-      "dealer_net": 3276,
-      "inst_total_net": -9734
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 120150,
-      "trust_net": -102000,
-      "dealer_net": -18848,
-      "inst_total_net": -698
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 42893,
-      "trust_net": -70000,
-      "dealer_net": -20145,
-      "inst_total_net": -47252
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 104829,
@@ -1737,37 +1100,16 @@
       "trust_net": -39000,
       "dealer_net": -14291,
       "inst_total_net": 137733
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 130009,
+      "trust_net": -222000,
+      "dealer_net": 14463,
+      "inst_total_net": -77528
     }
   ],
   "4551": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -2752,
-      "trust_net": -37000,
-      "dealer_net": -7144,
-      "inst_total_net": -46896
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 163,
-      "trust_net": 0,
-      "dealer_net": 9191,
-      "inst_total_net": 9354
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -99628,
-      "trust_net": 0,
-      "dealer_net": -501,
-      "inst_total_net": -100129
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 4594,
-      "trust_net": 0,
-      "dealer_net": -16747,
-      "inst_total_net": -12153
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 58205,
@@ -1795,37 +1137,16 @@
       "trust_net": 0,
       "dealer_net": -9855,
       "inst_total_net": 318465
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -1038962,
+      "trust_net": 320000,
+      "dealer_net": 48447,
+      "inst_total_net": -670515
     }
   ],
   "4967": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 875686,
-      "trust_net": 0,
-      "dealer_net": 79351,
-      "inst_total_net": 955037
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 1772339,
-      "trust_net": 0,
-      "dealer_net": 98420,
-      "inst_total_net": 1870759
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 1310940,
-      "trust_net": 0,
-      "dealer_net": -66326,
-      "inst_total_net": 1244614
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -1710063,
-      "trust_net": 0,
-      "dealer_net": -51276,
-      "inst_total_net": -1761339
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -1036631,
@@ -1853,37 +1174,16 @@
       "trust_net": 0,
       "dealer_net": -116,
       "inst_total_net": -74387
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -223126,
+      "trust_net": 303000,
+      "dealer_net": -44197,
+      "inst_total_net": 35677
     }
   ],
   "5292": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -60196,
-      "trust_net": 0,
-      "dealer_net": -13858,
-      "inst_total_net": -74054
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -7922,
-      "trust_net": 0,
-      "dealer_net": 10343,
-      "inst_total_net": 2421
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -5000,
-      "trust_net": 0,
-      "dealer_net": -8490,
-      "inst_total_net": -13490
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 48000,
-      "trust_net": 0,
-      "dealer_net": -2621,
-      "inst_total_net": 45379
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 2169,
@@ -1911,37 +1211,16 @@
       "trust_net": 0,
       "dealer_net": -9100,
       "inst_total_net": -24366
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -37171,
+      "trust_net": 0,
+      "dealer_net": -1845,
+      "inst_total_net": -39016
     }
   ],
   "5351": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 2359057,
-      "trust_net": 21000,
-      "dealer_net": 53264,
-      "inst_total_net": 2433321
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 2113112,
-      "trust_net": 0,
-      "dealer_net": 334101,
-      "inst_total_net": 2447213
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 101634,
-      "trust_net": 0,
-      "dealer_net": -115190,
-      "inst_total_net": -13556
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 248917,
-      "trust_net": 0,
-      "dealer_net": 19211,
-      "inst_total_net": 268128
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -1352949,
@@ -1969,37 +1248,16 @@
       "trust_net": 20000,
       "dealer_net": -18220,
       "inst_total_net": 381321
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -1840350,
+      "trust_net": 179000,
+      "dealer_net": -335007,
+      "inst_total_net": -1996357
     }
   ],
   "6173": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -2559486,
-      "trust_net": 1000,
-      "dealer_net": 3250,
-      "inst_total_net": -2555236
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -187095,
-      "trust_net": -47000,
-      "dealer_net": 250769,
-      "inst_total_net": 16674
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 797764,
-      "trust_net": 0,
-      "dealer_net": 606543,
-      "inst_total_net": 1404307
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -1606195,
-      "trust_net": 0,
-      "dealer_net": -82922,
-      "inst_total_net": -1689117
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 1046263,
@@ -2027,37 +1285,16 @@
       "trust_net": -895000,
       "dealer_net": -16164,
       "inst_total_net": 825651
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 845446,
+      "trust_net": 0,
+      "dealer_net": 81464,
+      "inst_total_net": 926910
     }
   ],
   "6182": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 474291,
-      "trust_net": 2000,
-      "dealer_net": -295339,
-      "inst_total_net": 180952
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 774169,
-      "trust_net": 0,
-      "dealer_net": 7420,
-      "inst_total_net": 781589
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": 865557,
-      "trust_net": 0,
-      "dealer_net": -54361,
-      "inst_total_net": 811196
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 167699,
-      "trust_net": 0,
-      "dealer_net": -579014,
-      "inst_total_net": -411315
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 709959,
@@ -2085,37 +1322,16 @@
       "trust_net": 8000,
       "dealer_net": -289433,
       "inst_total_net": 1912005
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 1868975,
+      "trust_net": 0,
+      "dealer_net": 55123,
+      "inst_total_net": 1924098
     }
   ],
   "6187": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -374679,
-      "trust_net": 338000,
-      "dealer_net": 8928,
-      "inst_total_net": -27751
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -336582,
-      "trust_net": -12000,
-      "dealer_net": 30195,
-      "inst_total_net": -318387
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -97812,
-      "trust_net": 3000,
-      "dealer_net": -16034,
-      "inst_total_net": -110846
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -164580,
-      "trust_net": 28165,
-      "dealer_net": -28788,
-      "inst_total_net": -165203
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -176388,
@@ -2143,37 +1359,16 @@
       "trust_net": 97269,
       "dealer_net": -119720,
       "inst_total_net": -342505
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 141075,
+      "trust_net": 179117,
+      "dealer_net": 50659,
+      "inst_total_net": 370851
     }
   ],
   "6213": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -2824764,
-      "trust_net": 269000,
-      "dealer_net": 382192,
-      "inst_total_net": -2173572
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -1402720,
-      "trust_net": -6000,
-      "dealer_net": -153820,
-      "inst_total_net": -1562540
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -2230107,
-      "trust_net": 175000,
-      "dealer_net": -7048,
-      "inst_total_net": -2062155
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -434553,
-      "trust_net": -15000,
-      "dealer_net": -31693,
-      "inst_total_net": -481246
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -219410,
@@ -2201,37 +1396,16 @@
       "trust_net": 8000,
       "dealer_net": 327950,
       "inst_total_net": 1671031
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -895753,
+      "trust_net": 26000,
+      "dealer_net": -196008,
+      "inst_total_net": -1065761
     }
   ],
   "6426": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 159353,
-      "trust_net": 13000,
-      "dealer_net": 505,
-      "inst_total_net": 172858
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -131600,
-      "trust_net": 1000,
-      "dealer_net": 3339,
-      "inst_total_net": -127261
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -3360,
-      "trust_net": 0,
-      "dealer_net": -244,
-      "inst_total_net": -3604
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 130000,
-      "trust_net": 0,
-      "dealer_net": -7982,
-      "inst_total_net": 122018
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 126000,
@@ -2259,37 +1433,16 @@
       "trust_net": 0,
       "dealer_net": 17370,
       "inst_total_net": 59570
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 6015,
+      "trust_net": 0,
+      "dealer_net": 25486,
+      "inst_total_net": 31501
     }
   ],
   "6531": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": 237721,
-      "trust_net": 72000,
-      "dealer_net": 62921,
-      "inst_total_net": 372642
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 360545,
-      "trust_net": 4000,
-      "dealer_net": 3528,
-      "inst_total_net": 368073
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -271133,
-      "trust_net": -13000,
-      "dealer_net": -21910,
-      "inst_total_net": -306043
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -139851,
-      "trust_net": 17000,
-      "dealer_net": -51535,
-      "inst_total_net": -174386
-    },
     {
       "date": "2026-11-03",
       "foreign_net": 81655,
@@ -2317,37 +1470,16 @@
       "trust_net": 16000,
       "dealer_net": -75421,
       "inst_total_net": -226262
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -774981,
+      "trust_net": 1713000,
+      "dealer_net": 35320,
+      "inst_total_net": 973339
     }
   ],
   "8046": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -790229,
-      "trust_net": 793000,
-      "dealer_net": 51898,
-      "inst_total_net": 54669
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -1201087,
-      "trust_net": 278000,
-      "dealer_net": 19727,
-      "inst_total_net": -903360
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -21627,
-      "trust_net": 123044,
-      "dealer_net": -22241,
-      "inst_total_net": 79176
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -62916,
-      "trust_net": 425901,
-      "dealer_net": 42682,
-      "inst_total_net": 405667
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -1248645,
@@ -2375,37 +1507,16 @@
       "trust_net": 399185,
       "dealer_net": 18741,
       "inst_total_net": 310496
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -186908,
+      "trust_net": 405000,
+      "dealer_net": -25931,
+      "inst_total_net": 192161
     }
   ],
   "00881": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -4340003,
-      "trust_net": 0,
-      "dealer_net": -4797645,
-      "inst_total_net": -9137648
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -1040580,
-      "trust_net": 0,
-      "dealer_net": 1184759,
-      "inst_total_net": 144179
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -3035618,
-      "trust_net": 0,
-      "dealer_net": -6920826,
-      "inst_total_net": -9956444
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -4508022,
-      "trust_net": 0,
-      "dealer_net": -13051684,
-      "inst_total_net": -17559706
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -6949993,
@@ -2433,37 +1544,16 @@
       "trust_net": 0,
       "dealer_net": -10124341,
       "inst_total_net": -17453482
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 2078052,
+      "trust_net": 0,
+      "dealer_net": -3475876,
+      "inst_total_net": -1397824
     }
   ],
   "00935": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -1426217,
-      "trust_net": 317000,
-      "dealer_net": -3397770,
-      "inst_total_net": -4506987
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 308050,
-      "trust_net": 266000,
-      "dealer_net": -1032706,
-      "inst_total_net": -458656
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -2828137,
-      "trust_net": 123000,
-      "dealer_net": -1901826,
-      "inst_total_net": -4606963
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -3061921,
-      "trust_net": 533000,
-      "dealer_net": -6922595,
-      "inst_total_net": -9451516
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -5951215,
@@ -2491,37 +1581,16 @@
       "trust_net": 382000,
       "dealer_net": -4059400,
       "inst_total_net": -9076641
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -118802,
+      "trust_net": 358000,
+      "dealer_net": -6217433,
+      "inst_total_net": -5978235
     }
   ],
   "00631L": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -2768433,
-      "trust_net": 0,
-      "dealer_net": -40773609,
-      "inst_total_net": -43542042
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -1354407,
-      "trust_net": 0,
-      "dealer_net": -2423397,
-      "inst_total_net": -3777804
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -4438967,
-      "trust_net": 0,
-      "dealer_net": -81493162,
-      "inst_total_net": -85932129
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": 2645678,
-      "trust_net": 0,
-      "dealer_net": -228201004,
-      "inst_total_net": -225555326
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -11394903,
@@ -2549,37 +1618,16 @@
       "trust_net": -12000,
       "dealer_net": -463251135,
       "inst_total_net": -466014607
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 250153,
+      "trust_net": 956000,
+      "dealer_net": 28620650,
+      "inst_total_net": 29826803
     }
   ],
   "0050": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -28420605,
-      "trust_net": 4710000,
-      "dealer_net": -46085537,
-      "inst_total_net": -69796142
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": -7076335,
-      "trust_net": 2310000,
-      "dealer_net": -2158990,
-      "inst_total_net": -6925325
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -43090275,
-      "trust_net": 3300000,
-      "dealer_net": -9098552,
-      "inst_total_net": -48888827
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -97979941,
-      "trust_net": 2609000,
-      "dealer_net": -67364227,
-      "inst_total_net": -162735168
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -78883057,
@@ -2607,37 +1655,16 @@
       "trust_net": 8361000,
       "dealer_net": -457625140,
       "inst_total_net": -537977747
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": 206481,
+      "trust_net": 8952000,
+      "dealer_net": -24720295,
+      "inst_total_net": -15561814
     }
   ],
   "0056": [
-    {
-      "date": "2026-10-27",
-      "foreign_net": -25711,
-      "trust_net": 450000,
-      "dealer_net": -6371600,
-      "inst_total_net": -5947311
-    },
-    {
-      "date": "2026-10-28",
-      "foreign_net": 4429502,
-      "trust_net": 505000,
-      "dealer_net": 2891460,
-      "inst_total_net": 7825962
-    },
-    {
-      "date": "2026-10-29",
-      "foreign_net": -2488500,
-      "trust_net": 900000,
-      "dealer_net": -6870371,
-      "inst_total_net": -8458871
-    },
-    {
-      "date": "2026-10-30",
-      "foreign_net": -11108534,
-      "trust_net": 300000,
-      "dealer_net": -47329675,
-      "inst_total_net": -58138209
-    },
     {
       "date": "2026-11-03",
       "foreign_net": -8657737,
@@ -2665,6 +1692,13 @@
       "trust_net": 0,
       "dealer_net": -77034865,
       "inst_total_net": -94154390
+    },
+    {
+      "date": "2026-11-10",
+      "foreign_net": -5509546,
+      "trust_net": 894000,
+      "dealer_net": -8302535,
+      "inst_total_net": -12918081
     }
   ]
 }
