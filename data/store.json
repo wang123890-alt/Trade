@@ -2113,6 +2113,32 @@
       "ruleAutoNote": "",
       "createdAt": "2026-11-15T02:00:00.000Z",
       "updatedAt": "2026-11-15T02:00:00.000Z"
+    },
+    {
+      "id": "yt_20261123_00631L_1",
+      "stockId": "00631L",
+      "stockName": "元大台灣50正2",
+      "type": "BUY",
+      "dateTime": "2026-11-23T00:00:00",
+      "price": 22.35,
+      "quantity": 200,
+      "fee": 3,
+      "tax": 0,
+      "strategy": "",
+      "reason": "",
+      "note": "9218交割憑單",
+      "ruleTrend": "",
+      "ruleBreakout": "",
+      "ruleAdx": "",
+      "ruleVolume": "",
+      "ruleExitFlag": "",
+      "followedRules": "",
+      "pnlKind": "",
+      "selfReview": "",
+      "ruleAuto": [],
+      "ruleAutoNote": "",
+      "createdAt": "2026-11-24T11:50:00.000Z",
+      "updatedAt": "2026-11-24T11:50:00.000Z"
     }
   ],
   "watchlist": [
