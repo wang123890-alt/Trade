@@ -1778,7 +1778,7 @@
       "dateTime": "2026-09-30",
       "price": 937,
       "quantity": 100,
-      "fee": 134,
+      "fee": 80,
       "tax": 281,
       "strategy": "",
       "reason": "多日無上漲跡象，走勢有偏下跡象",
@@ -1792,7 +1792,7 @@
       "pnlKind": "",
       "selfReview": "停損過早，2號大漲",
       "createdAt": "2026-09-30T02:07:37.077Z",
-      "updatedAt": "2026-10-03T13:32:09.002Z"
+      "updatedAt": "2026-11-24T11:30:00.000Z"
     },
     {
       "id": "tx_munh0duf_qhju36",
@@ -1802,7 +1802,7 @@
       "dateTime": "2026-09-30",
       "price": 18.95,
       "quantity": 4000,
-      "fee": 108,
+      "fee": 64,
       "tax": 0,
       "strategy": "",
       "reason": "漲幅大幅超過前幾天，成交量超過昨天近一倍",
@@ -1816,7 +1816,7 @@
       "pnlKind": "",
       "selfReview": "",
       "createdAt": "2026-09-30T02:12:53.656Z",
-      "updatedAt": "2026-09-30T02:12:53.656Z"
+      "updatedAt": "2026-11-24T11:30:00.000Z"
     },
     {
       "id": "tx_musf7g89_jdgvgu",
